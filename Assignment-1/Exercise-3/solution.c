@@ -4,6 +4,13 @@
 #include <time.h>
 #include <stdlib.h>
 #include <sys/time.h>
+//Define macro to make code a bit more clean
+#define MATCHES_ZERO(a) \
+    ((a).info_array_0 == array_zeroes[0]&& \
+     (a).info_array_1 == array_zeroes[1] && \
+     (a).info_array_2 == array_zeroes[2] && \
+     (a).info_array_3 == array_zeroes[3])
+
 struct array_stats_s {
     long long int info_array_0;
     long long int info_array_1;
@@ -13,6 +20,7 @@ struct array_stats_s {
 
 int** arrays;
 long size;
+int array_zeroes[4];
 void *Count_Non_Zero(void* rank){
     long my_rank = (long) rank;
     
@@ -91,10 +99,15 @@ int main(int argc, char* argv[]){
     array_stats.info_array_3 = 0;
     srand((unsigned) time(NULL));
     arrays = malloc(4 * sizeof(int*));
+    int value;
     for(int i = 0; i < 4; i++){
         arrays[i] = malloc(size * sizeof(int));
         for(int j = 0; j < size ; j++){
-            arrays[i][j] = rand() % 10;
+            value = rand() % 10;
+            arrays[i][j] = value;
+            if(value == 0){
+                array_zeroes[i]++;
+            }
         }
     }
     gettimeofday(&end,NULL);
@@ -115,10 +128,7 @@ int main(int argc, char* argv[]){
     gettimeofday(&end,NULL);
     elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
     printf("Serial execution for array size of %ld took: %f seconds\n",size, elapsed);
-    if( array_stats.info_array_0 == array_stats_serial.info_array_0 &&
-        array_stats.info_array_1 == array_stats_serial.info_array_1 &&
-        array_stats.info_array_2 == array_stats_serial.info_array_2 &&
-        array_stats.info_array_3 == array_stats_serial.info_array_3){
+    if(MATCHES_ZERO(array_stats) && MATCHES_ZERO(array_stats_serial)){
             printf("Results are correct!\n");
         }
     else{
