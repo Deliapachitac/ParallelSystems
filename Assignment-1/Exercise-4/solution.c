@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
-#include "my_rand.h"
+#include "../Shared/my_rand.h"
 long int* Account_Balances;
 float trans_per_thread;
 long perc_questions;
