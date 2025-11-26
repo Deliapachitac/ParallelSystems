@@ -4,6 +4,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include "../Shared/my_rand.h"
 //Define macro to make code a bit more clean
 #define MATCHES_ZERO(a) \
     ((a).info_array_0 == array_zeroes[0]&& \
@@ -20,38 +21,32 @@ struct array_stats_s {
 
 int** arrays;
 long size;
-int array_zeroes[4];
+int array_zeroes[4] = {0,0,0,0};
 void *Count_Non_Zero(void* rank){
     long my_rank = (long) rank;
-    
-        
+    int* array0 = arrays[0];
+    int* array1 = arrays[1];
+    int* array2 = arrays[2];
+    int* array3 = arrays[3];
         switch(my_rank){
             case 0:
                 for(int i = 0; i < size; i++){
-                    if(arrays[0][i] != 0){
-                        array_stats.info_array_0++;
-                    }
+                    array_stats.info_array_0 += (array0[i] != 0);
                 }
                 break;
             case 1:
                 for(int i = 0; i < size; i++){
-                    if(arrays[1][i] != 0){
-                        array_stats.info_array_1++;
-                    }
+                    array_stats.info_array_1 += (array1[i] != 0); 
                 }
                 break;
             case 2:
                 for(int i = 0; i < size; i++){
-                    if(arrays[2][i] != 0){
-                        array_stats.info_array_2++;
-                    }
+                    array_stats.info_array_2 += (array2[i] != 0);
                 }
                 break;
             case 3:
                 for(int i = 0; i < size; i++){
-                    if(arrays[3][i] != 0){
-                        array_stats.info_array_3++;
-                    }
+                    array_stats.info_array_3 += (array3[i] != 0);
                 }
                 break;      
             }
@@ -62,19 +57,16 @@ void *Count_Non_Zero(void* rank){
 }
 
 void Count_Non_Zero_Serial(){
+    int* array0 = arrays[0];
+    int* array1 = arrays[1];
+    int* array2 = arrays[2];
+    int* array3 = arrays[3];
+
     for(int i = 0; i< size; i++){
-        if(arrays[0][i] != 0){
-            array_stats_serial.info_array_0++;
-        }
-        if(arrays[1][i] != 0){
-            array_stats_serial.info_array_1++;
-        }
-        if(arrays[2][i] != 0){
-            array_stats_serial.info_array_2++;
-        }
-        if(arrays[3][i] != 0){
-            array_stats_serial.info_array_3++;
-        }
+        array_stats_serial.info_array_0 += (array0[i] != 0);
+        array_stats_serial.info_array_1 += (array1[i] != 0);
+        array_stats_serial.info_array_2 += (array2[i] != 0);
+        array_stats_serial.info_array_3 += (array3[i] != 0);
     }
 }
 
@@ -93,22 +85,42 @@ int main(int argc, char* argv[]){
     pthread_t* thread_handles;
     gettimeofday(&start, NULL);
     thread_handles = malloc(4 * sizeof(pthread_t));
+    arrays = malloc(4*sizeof(int*));
+    for (int i = 0; i < 4; i++) {
+        arrays[i] = malloc(size * sizeof(int));
+    }
     array_stats.info_array_0 = 0;
     array_stats.info_array_1 = 0;
     array_stats.info_array_2 = 0;
     array_stats.info_array_3 = 0;
-    srand((unsigned) time(NULL));
-    arrays = malloc(4 * sizeof(int*));
-    int value;
-    for(int i = 0; i < 4; i++){
-        arrays[i] = malloc(size * sizeof(int));
-        for(int j = 0; j < size ; j++){
-            value = rand() % 10;
-            arrays[i][j] = value;
-            if(value == 0){
-                array_zeroes[i]++;
-            }
-        }
+    array_stats_serial.info_array_0 = 0;
+    array_stats_serial.info_array_1 = 0;
+    array_stats_serial.info_array_2 = 0;
+    array_stats_serial.info_array_3 = 0;
+    unsigned int seed = time(NULL);
+    //Avoid dereferncing pointer
+    int *a0 = arrays[0];
+    int *a1 = arrays[1];
+    int *a2 = arrays[2];
+    int *a3 = arrays[3];
+    for(int j = 0; j < size ; j++){
+        //Use rand only once to reduce function call overhead
+        unsigned r = my_rand(&seed);
+        int v0 =  r        % 10;
+        int v1 = (r >> 8)  % 10;
+        int v2 = (r >> 16) % 10;
+        int v3 = (r >> 24) % 10;
+
+        a0[j] = v0;
+        a1[j] = v1;
+        a2[j] = v2;
+        a3[j] = v3;
+
+        // Branchless zero detection
+        array_zeroes[0] += (v0 != 0);
+        array_zeroes[1] += (v1 != 0);
+        array_zeroes[2] += (v2 != 0);
+        array_zeroes[3] += (v3 != 0);
     }
     gettimeofday(&end,NULL);
     elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
