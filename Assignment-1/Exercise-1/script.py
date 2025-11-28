@@ -1,10 +1,11 @@
 import subprocess
 import matplotlib.pyplot as plt
 import re
+import numpy as np
 
 # Degrees of polynomials and number of threads to test 
-polyonomial_degrees = [10**3, 10**4]
-thread_num =[4 ,8,16]
+polyonomial_degrees = [ 10**3, 10**4]
+thread_num =[2,4 ,8]
 
 # Array to store times
 initialization_time = []
@@ -18,18 +19,14 @@ parallel_re = re.compile(r"Parallel multiplication time: ([0-9.]+) seconds")
 
 num_runs = 5
 
-for degree in polyonomial_degrees:
+# Results dictionary: method -> {(threads, degree): avg_time}
+results = {"Initialization": {}, "Serial": {}, "Parallel": {}}
+
+for  degree in polyonomial_degrees:
     print(f"Running for polynomial degree: {degree}")
-
-    # Temporary lists to store averages across threads
-    temp_init = []
-    temp_serial = []
-    temp_parallel = []
-
     
 
-    for threads in thread_num:
-
+    for threads in thread_num :
         print(f"  Using {threads} threads")
 
         # Temporary lists to store times for averaging
@@ -50,24 +47,36 @@ for degree in polyonomial_degrees:
             run_temp_serial.append(float(serial_re.search(output).group(1)))
             run_temp_parallel.append(float(parallel_re.search(output).group(1)))
 
-        # Average over 5 runs for this (degree, threads)
-        temp_init.append(sum(run_temp_init) / num_runs)
-        temp_serial.append(sum(run_temp_serial) / num_runs)
-        temp_parallel.append(sum(run_temp_parallel) / num_runs)
+        # Compute average times
+        avg_init_time = sum(run_temp_init) / num_runs
+        avg_serial_time = sum(run_temp_serial) / num_runs
+        avg_parallel_time = sum(run_temp_parallel) / num_runs
 
-    # Average over different thread counts for this degree
-    initialization_time.append(sum(temp_init) / len(thread_num))
-    serial_time.append(sum(temp_serial) / len(thread_num))
-    parallel_time.append(sum(temp_parallel) / len(thread_num))
+        # Store average times in results dictionary
+        results["Initialization"][(threads, degree)] = avg_init_time
+        results["Serial"][(threads, degree)] = avg_serial_time
+        results["Parallel"][(threads, degree)] = avg_parallel_time
 
-# Example plot: Serial vs Parallel time
-plt.figure(figsize=(10,5))
-plt.plot(polyonomial_degrees, serial_time, marker='o', label="Serial")
-plt.plot(polyonomial_degrees, parallel_time, marker='s', label="Parallel")
-plt.xlabel("Polynomial Degree")
-plt.ylabel("Time (seconds)")
-plt.title("Polynomial Multiplication Performance")
-plt.legend()
-plt.xscale("log")
-plt.grid(True)
+        
+
+
+labels = [f"T{t}/D{d}" for t in thread_num for d in polyonomial_degrees]
+x = np.arange(len(labels))
+width = 0.25
+
+fig, ax = plt.subplots(figsize=(14,6))
+
+for idx, method in enumerate(["Initialization", "Serial", "Parallel"]):
+    y_values = [results[method][(t,d)] for t in thread_num for d in polyonomial_degrees]
+    ax.bar(x + idx*width, y_values, width, label=method)
+
+ax.set_xlabel("Threads-Degree")
+ax.set_ylabel("Average Time (seconds)")
+ax.set_title("Polynomial Multiplication Benchmark")
+ax.set_xticks(x + width)
+ax.set_xticklabels(labels, rotation=45)
+ax.legend()
+
+plt.tight_layout()
+plt.savefig("poly_times.png", dpi=300)
 plt.show()

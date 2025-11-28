@@ -11,6 +11,7 @@ TARGET3 = atomic
 SRC1 = mutex.c
 SRC2 = rwlock.c
 SRC3 = atomic.c
+SRC= exercise_2.c
 
 # Default rule1
 all: $(TARGET1)
@@ -19,13 +20,12 @@ $(TARGET1): $(SRC1)
 	$(CC) $(CFLAGS) -o $(TARGET1) $(SRC1)
 	$(CC) $(CFLAGS) -o $(TARGET2) $(SRC2)
 	$(CC) $(CFLAGS) -o $(TARGET3) $(SRC3)
+	$(CC) $(CFLAGS) -o exercise_2 $(SRC)
 
 # Run example (4 threads, 1000 iterations)
 run: 
-	./$(TARGET1) 4 1000
-	./$(TARGET2) 4 1000
-	./$(TARGET3) 4 1000
+	python3 script.py
 
 # Clean up build files
 clean:
-	rm -f $(TARGET1) $(TARGET2) $(TARGET3) *.o
+	rm -f $(TARGET1) $(TARGET2) $(TARGET3) exercise_2 *.o
