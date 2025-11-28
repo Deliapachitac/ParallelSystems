@@ -7,12 +7,12 @@ import numpy as np
 polyonomial_degrees = [ 10**3, 10**4]
 thread_num =[2,4 ,8]
 
-# Array to store times
-initialization_time = []
-serial_time = []
-parallel_time = []
+# Storage structures
+parallel_times = {t: [] for t in thread_num}   # parallel times for each thread count
+serial_time = []                                # serial time is same regardless of thread count
+init_time = []                                   # optional if you need it
 
-# Regex patterns to capture times from output
+# Regex patterns
 init_re = re.compile(r"Initialization time: ([0-9.]+) seconds")
 serial_re = re.compile(r"Serial multiplication time: ([0-9.]+) seconds")
 parallel_re = re.compile(r"Parallel multiplication time: ([0-9.]+) seconds")
@@ -29,22 +29,15 @@ for  degree in polyonomial_degrees:
     for threads in thread_num :
         print(f"  Using {threads} threads")
 
-        # Temporary lists to store times for averaging
-        run_temp_init = []
-        run_temp_serial = []
         run_temp_parallel = []
 
         for run in range(num_runs):
-            print(f"    Run {run + 1}/{num_runs}")
             result = subprocess.run(["./exercise_1", str(degree), str(threads)],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE,
                                     text=True)
             output = result.stdout
 
-            # Extract times using regex
-            run_temp_init.append(float(init_re.search(output).group(1)))
-            run_temp_serial.append(float(serial_re.search(output).group(1)))
             run_temp_parallel.append(float(parallel_re.search(output).group(1)))
 
         # Compute average times
