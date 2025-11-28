@@ -11,7 +11,7 @@ except:
     plt.style.use('ggplot')
 
 # Array sizes to test
-sizes = [10**5, 10**6]
+sizes = [10**5, 10**6,10**7]
 num_runs = 5
 
 # Regex patterns
@@ -155,8 +155,127 @@ plt.tight_layout()
 plt.savefig("overhead_analysis.png", dpi=150)
 plt.close()
 
-print("\nVisualization Complete! Generated 4 files:")
+# ==========================================
+# GRAPH 5: Summary Table (Text & Image)
+# ==========================================
+
+# --- Part A: Print to Console ---
+print("\n" + "="*75)
+print(f"{'Size':<10} | {'Init (s)':<12} | {'Serial (s)':<12} | {'Par Orig (s)':<12} | {'Par Imp (s)':<12}")
+print("-" * 75)
+for i, size in enumerate(sizes):
+    print(f"{format_xaxis(size,0):<10} | "
+          f"{data['init'][i]:<12.5f} | "
+          f"{data['serial'][i]:<12.5f} | "
+          f"{data['parallel_sol'][i]:<12.5f} | "
+          f"{data['parallel_imp'][i]:<12.5f}")
+print("="*75 + "\n")
+
+# --- Part B: Save as Image ---
+fig, ax = plt.subplots(figsize=(10, len(sizes) * 0.5 + 2)) # Adjust height based on rows
+ax.axis('tight')
+ax.axis('off')
+
+# Prepare table data
+col_labels = ["Array Size", "Init Time", "Serial Time", "Par. Orig.", "Par. Imp."]
+cell_text = []
+for i, size in enumerate(sizes):
+    row = [
+        format_xaxis(size, 0),
+        f"{data['init'][i]:.5f} s",
+        f"{data['serial'][i]:.5f} s",
+        f"{data['parallel_sol'][i]:.5f} s",
+        f"{data['parallel_imp'][i]:.5f} s"
+    ]
+    cell_text.append(row)
+
+# Create the table
+table = ax.table(cellText=cell_text, colLabels=col_labels, loc='center', cellLoc='center')
+
+# Styling
+table.auto_set_font_size(False)
+table.set_fontsize(12)
+table.scale(1, 1.8) # Stretch height for readability
+
+# Color headers to match your previous graphs
+# 0=Size, 1=Init (Purple), 2=Serial (Gray), 3=Par Orig (Blue), 4=Par Imp (Green)
+header_colors = ['#dddddd', '#D8BFD8', '#d3d3d3', '#add8e6', '#aaffaa'] 
+
+for (row, col), cell in table.get_celld().items():
+    if row == 0:
+        cell.set_text_props(weight='bold')
+        cell.set_facecolor(header_colors[col])
+
+ax.set_title("5. Execution Time Summary Table", fontsize=14, fontweight='bold', y=0.95)
+
+plt.tight_layout()
+plt.savefig("execution_table.png", dpi=150, bbox_inches='tight')
+plt.close()
+
+# ==========================================
+# GRAPH 6: Speedup Comparison Table
+# ==========================================
+
+# Calculate Speedups
+speedup_orig_list = [s / p for s, p in zip(data["serial"], data["parallel_sol"])]
+speedup_imp_list = [s / p for s, p in zip(data["serial"], data["parallel_imp"])]
+
+# --- Part A: Print to Console ---
+print("\n" + "="*50)
+print(f"{'Size':<10} | {'Speedup Orig':<15} | {'Speedup Imp':<15}")
+print("-" * 50)
+for i, size in enumerate(sizes):
+    print(f"{format_xaxis(size,0):<10} | "
+          f"{speedup_orig_list[i]:<14.2f}x | "
+          f"{speedup_imp_list[i]:<14.2f}x")
+print("="*50 + "\n")
+
+# --- Part B: Save as Image ---
+fig, ax = plt.subplots(figsize=(8, len(sizes) * 0.5 + 2)) 
+ax.axis('tight')
+ax.axis('off')
+
+# Prepare table data
+col_labels = ["Array Size", "Original Speedup", "Improved Speedup"]
+cell_text = []
+for i, size in enumerate(sizes):
+    row = [
+        format_xaxis(size, 0),
+        f"{speedup_orig_list[i]:.2f}x",
+        f"{speedup_imp_list[i]:.2f}x"
+    ]
+    cell_text.append(row)
+
+# Create the table
+table = ax.table(cellText=cell_text, colLabels=col_labels, loc='center', cellLoc='center')
+
+# Styling
+table.auto_set_font_size(False)
+table.set_fontsize(12)
+table.scale(1, 1.8)
+
+# Header Colors: Size (Gray), Orig (Blue), Imp (Green)
+header_colors = ['#dddddd', '#add8e6', '#aaffaa']
+
+for (row, col), cell in table.get_celld().items():
+    if row == 0:
+        cell.set_text_props(weight='bold')
+        cell.set_facecolor(header_colors[col])
+    else:
+        # Highlight the "Improved" column values in bold green text for emphasis
+        if col == 2:
+            cell.set_text_props(weight='bold', color='darkgreen')
+
+ax.set_title("6. Parallel Speedup Factor Table", fontsize=14, fontweight='bold', y=0.95)
+
+plt.tight_layout()
+plt.savefig("speedup_table.png", dpi=150, bbox_inches='tight')
+plt.close()
+
+print("\nVisualization Complete! Generated 6 files:")
 print("1. execution_comparison.png")
 print("2. speedup_analysis.png")
 print("3. initialization_times.png")
 print("4. overhead_analysis.png (Stacked Bar Chart)")
+print("5. execution_table.png (New Summary Table)")
+print("6. speedup_table.png")

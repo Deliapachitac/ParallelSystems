@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <locale.h>
 #include "../Shared/my_rand.h"
-#define SLEEPING 0
+#define SLEEPING 1
 long int* Account_Balances;
 float trans_per_thread;
 float perc_questions;
@@ -33,7 +33,7 @@ void *Transactions(void* my_rank){
                 acc1 = my_rand(&seed) % num_of_items;
                 pthread_rwlock_rdlock(&rwlock);
                 total_balance += Account_Balances[acc1];
-                if(SLEEPING) sleep(0.00001);
+                if(SLEEPING) usleep(10);
                 pthread_rwlock_unlock(&rwlock);
             }
             //Transfer money
@@ -57,7 +57,7 @@ void *Transactions(void* my_rank){
                 acc1 = my_rand(&seed) % num_of_items;
                 pthread_rwlock_rdlock(&rwlocks[acc1]);
                 total_balance += Account_Balances[acc1];
-                if(SLEEPING) sleep(0.00001);
+                if(SLEEPING) usleep(10);
                 pthread_rwlock_unlock(&rwlocks[acc1]);
             }
             //Transfer money
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
     }
  
     perc_questions = strtof(argv[3], NULL);
-    if(errno != 0 || perc_questions <= 0 || perc_questions > 1){
+    if(errno != 0 || perc_questions < 0 || perc_questions > 1){
         fprintf(stderr, "Percentage of questions should be a float number between 0 and 1\n");
         return 1;
     }

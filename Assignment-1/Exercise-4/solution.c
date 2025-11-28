@@ -30,7 +30,7 @@ void *Transactions(void* my_rank){
                 acc1 = my_rand(&seed) % num_of_items;
                 pthread_mutex_lock(&mutex);
                 total_balance += Account_Balances[acc1];
-                if(SLEEPING) sleep(0.00001);
+                if(SLEEPING)  usleep(1);
                 pthread_mutex_unlock(&mutex);
             }
             //Transfer money
@@ -54,7 +54,7 @@ void *Transactions(void* my_rank){
                 acc1 = my_rand(&seed) % num_of_items;
                 pthread_mutex_lock(&mutexes[acc1]);
                 total_balance += Account_Balances[acc1];
-                if(SLEEPING) sleep(0.00001);
+                if(SLEEPING)  usleep(1);
                 pthread_mutex_unlock(&mutexes[acc1]);
             }
             //Transfer money
@@ -100,7 +100,7 @@ int main(int argc, char* argv[]){
     }
 
     perc_questions = strtof(argv[3], NULL);
-    if(errno != 0 || perc_questions <= 0 || perc_questions > 1){
+    if(errno != 0 || perc_questions < 0 || perc_questions > 1){
         fprintf(stderr, "Percentage of questions should be a floating point number between 0 and 1\n");
         return 1;
     }
