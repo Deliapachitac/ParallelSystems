@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <locale.h>
 #include "../Shared/my_rand.h"
-#define SLEEPING 1
+#define SLEEPING 0
 long int* Account_Balances;
 float trans_per_thread;
 float perc_questions;

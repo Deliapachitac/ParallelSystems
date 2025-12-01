@@ -2,6 +2,7 @@ import subprocess
 import matplotlib.pyplot as plt
 import re
 import numpy as np
+import os
 
 programs = ["mutex", "rwlock", "atomic"]
 threads = [2, 4, 8]
@@ -23,7 +24,9 @@ for program in programs:
 
             for run in range(runs):
                 print(f"  Run {run + 1}/{runs}")
-                result = subprocess.run(["./exercise_2", program, str(thread_count), str(iteration_count  )],
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                exe_path = os.path.join(script_dir, "exercise_2")
+                result = subprocess.run([exe_path, program, str(thread_count), str(iteration_count  )],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
                                         text=True)

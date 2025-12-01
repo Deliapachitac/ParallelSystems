@@ -2,15 +2,19 @@ import subprocess
 import matplotlib.pyplot as plt
 import re
 import numpy as np
+import os
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
+# 2. Join that path with your executable names
 programs = {
-    "pthread_barrier": "./exercise_5_1",
-    "mutex_cond": "./exercise_5_2",
-    "sense_reversal": "./exercise_5_3"
+    "pthread_barrier": os.path.join(SCRIPT_DIR, "exercise_5_1"),
+    "mutex_cond":      os.path.join(SCRIPT_DIR, "exercise_5_2"),
+    "sense_reversal":  os.path.join(SCRIPT_DIR, "exercise_5_3")
 }
 
-threads = [2, 4, 8,16]
+
+
+threads = [2, 4, 8,16,32]
 iterations = [50,100 ,1000]
 runs = 5
 

@@ -5,61 +5,50 @@ import os
 import sys
 
 # ================= CONFIGURATION =================
-EXECUTABLE_MUTEX = "./solution"
-EXECUTABLE_RW = "./solution_rw"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+EXECUTABLE_MUTEX = os.path.join(script_dir, "solution")
+EXECUTABLE_RW =  os.path.join(script_dir, "solution_rw")
 
 # Use enough threads to ensure contention (usually equal to or 2x your CPU cores)
-FIXED_THREADS = 16 
+FIXED_THREADS = 16
+
+# Number of times to repeat each test to calculate the average
+NUM_RUNS = 5 
 
 # --- TUNED SCENARIOS ---
 SCENARIOS = [
     {
-        # Scenario 1: "The Fight"
-        # Very few items means threads constantly collide. 
-        # Fine-grained should beat Coarse. RW should shine at high read %.
         "name": "Scenario_High_Contention",
         "title": "High Contention (10 Items, 20k Trans)",
         "items": 10,
         "trans": 20000 
     },
     {
-        # Scenario 2: "The Balanced Workload"
-        # Standard use case. Collisions happen but not constantly.
         "name": "Scenario_Medium_Contention",
         "title": "Medium Contention (1,000 Items, 20k Trans)",
         "items": 1000,
         "trans": 20000
     },
     {
-        # Scenario 3: "The Spread"
-        # Huge array. Almost zero collisions. 
-        # This tests the "Overhead" of the locks (RW locks usually slower here due to complexity).
         "name": "Scenario_Low_Contention",
         "title": "Low Contention (10k Items, 20k Trans)",
         "items": 10000,
         "trans": 20000
     },
     {
-        # Scenario 1: "The Fight"
-        # Very few items means threads constantly collide. 
-        # Fine-grained should beat Coarse. RW should shine at high read %.
         "name": "Scenario_High_Contention_small",
         "title": "High Contention (10 Items, 2k Trans)",
         "items": 10,
         "trans": 2000 
     },
     {
-        # Scenario 2: "The Balanced Workload"
-        # Standard use case. Collisions happen but not constantly.
         "name": "Scenario_Medium_Contention_small",
         "title": "Medium Contention (1,000 Items, 2k Trans)",
         "items": 1000,
         "trans": 2000
     },
     {
-        # Scenario 3: "The Spread"
-        # Huge array. Almost zero collisions. 
-        # This tests the "Overhead" of the locks (RW locks usually slower here due to complexity).
         "name": "Scenario_Low_Contention_small",
         "title": "Low Contention (10k Items, 2k Trans)",
         "items": 10000,
@@ -68,8 +57,6 @@ SCENARIOS = [
 ]
 
 # --- TUNED READ RATIOS ---
-# We focus heavily on the 0.90 - 0.99 range because that is where
-# the Read-Write lock theoretically overtakes the Mutex.
 READ_RATIOS = [0.0, 0.5, 0.8, 0.9, 0.95, 0.98, 0.99]
 # =================================================
 
@@ -81,7 +68,7 @@ def parse_time(output_str):
     return 0.0
 
 def run_single_test(executable, items, trans, perc, gran, threads):
-    """Runs the C executable and returns the time."""
+    """Runs the C executable once and returns the time."""
     if not os.path.exists(executable):
         print(f"Error: {executable} not found.")
         return 0.0
@@ -99,6 +86,16 @@ def run_single_test(executable, items, trans, perc, gran, threads):
         print(f"Exception: {e}")
         return 0.0
 
+def run_test_avg(executable, items, trans, perc, gran, threads):
+    """Runs the test NUM_RUNS times and returns the average time."""
+    total_time = 0.0
+    for _ in range(NUM_RUNS):
+        total_time += run_single_test(executable, items, trans, perc, gran, threads)
+    
+    if NUM_RUNS > 0:
+        return total_time / NUM_RUNS
+    return 0.0
+
 def print_and_save_table(title, ratios, results, filename_base):
     """Prints a formatted table to console and saves to .txt"""
     
@@ -106,7 +103,7 @@ def print_and_save_table(title, ratios, results, filename_base):
     sep = "-" * len(header)
     
     output_lines = []
-    output_lines.append(f"\nTABLE: {title}")
+    output_lines.append(f"\nTABLE: {title} (Avg of {NUM_RUNS} runs)")
     output_lines.append(sep)
     output_lines.append(header)
     output_lines.append(sep)
@@ -132,6 +129,7 @@ def print_and_save_table(title, ratios, results, filename_base):
 
 def main():
     print(f"--- Starting Benchmarks ({FIXED_THREADS} Threads) ---")
+    print(f"--- Averaging over {NUM_RUNS} runs per test ---")
     print("Note: Ensure executables exist and C code uses usleep() if needed.")
 
     for scenario in SCENARIOS:
@@ -150,16 +148,16 @@ def main():
 
         # Run Tests
         for p in READ_RATIOS:
-            sys.stdout.write(f"\r  > Running Test: Read Ratio {int(p*100)}%   ")
+            sys.stdout.write(f"\r  > Running Test (Avg {NUM_RUNS}x): Read Ratio {int(p*100)}%   ")
             sys.stdout.flush()
             
             # Mutex (0=Fine, 1=Coarse)
-            results["Mutex_Fine"].append(run_single_test(EXECUTABLE_MUTEX, items, trans, p, 0, FIXED_THREADS))
-            results["Mutex_Coarse"].append(run_single_test(EXECUTABLE_MUTEX, items, trans, p, 1, FIXED_THREADS))
+            results["Mutex_Fine"].append(run_test_avg(EXECUTABLE_MUTEX, items, trans, p, 0, FIXED_THREADS))
+            results["Mutex_Coarse"].append(run_test_avg(EXECUTABLE_MUTEX, items, trans, p, 1, FIXED_THREADS))
             
             # RW Lock (0=Fine, 1=Coarse)
-            results["RW_Fine"].append(run_single_test(EXECUTABLE_RW, items, trans, p, 0, FIXED_THREADS))
-            results["RW_Coarse"].append(run_single_test(EXECUTABLE_RW, items, trans, p, 1, FIXED_THREADS))
+            results["RW_Fine"].append(run_test_avg(EXECUTABLE_RW, items, trans, p, 0, FIXED_THREADS))
+            results["RW_Coarse"].append(run_test_avg(EXECUTABLE_RW, items, trans, p, 1, FIXED_THREADS))
         
         print("\n  > Data collected.")
 
@@ -176,9 +174,9 @@ def main():
         plt.plot(READ_RATIOS, results["RW_Coarse"], 'g--^', linewidth=1.5, alpha=0.7, label='RW Lock (Coarse)')
 
         # Styling
-        plt.title(title, fontsize=14, fontweight='bold')
+        plt.title(f"{title}\n(Average of {NUM_RUNS} runs)", fontsize=14, fontweight='bold')
         plt.xlabel('Ratio of Read Operations (0.0 - 1.0)', fontsize=12)
-        plt.ylabel('Execution Time (seconds)', fontsize=12)
+        plt.ylabel('Avg Execution Time (seconds)', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.6)
         plt.legend()
         

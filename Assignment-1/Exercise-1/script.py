@@ -2,7 +2,7 @@ import subprocess
 import matplotlib.pyplot as plt 
 import re 
 import numpy as np 
-
+import os
 # Degrees of polynomials and number of threads to test 
 polyonomial_degrees = [ 10**2,10**3, 10**4, 10**5 ] 
 thread_num =[4 ,8,16] 
@@ -34,7 +34,14 @@ for degree in  polyonomial_degrees:
 
         for run in range(num_runs): 
             print(f" Run {run + 1}/{num_runs}") 
-            result = subprocess.run(["./exercise_1", str(degree), str(threads)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) 
+
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            exe_path = os.path.join(script_dir, "exercise_1")
+           
+            result = subprocess.run([exe_path, str(degree), str(threads)],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    text=True)
             output = result.stdout 
 
             # Extract times using regex 

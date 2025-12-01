@@ -3,7 +3,7 @@ import re
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
-
+import os
 # --- Configuration ---
 try:
     plt.style.use('seaborn-v0_8-whitegrid')
@@ -37,14 +37,17 @@ for size in sizes:
 
     for run in range(num_runs):
         # 1. Run Standard Solution
-        res = subprocess.run(["./solution", str(size)], capture_output=True, text=True)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        exe_path = os.path.join(script_dir, "solution")
+        res = subprocess.run([exe_path, str(size)], capture_output=True, text=True)
         if res.returncode == 0:
             t_init.append(float(init_re.search(res.stdout).group(1)))
             t_par_sol.append(float(parallel_re.search(res.stdout).group(1)))
             t_serial.append(float(serial_re.search(res.stdout).group(1)))
 
         # 2. Run Improved Solution
-        res2 = subprocess.run(["./improved_solution", str(size)], capture_output=True, text=True)
+        exe_path = os.path.join(script_dir, "improved_solution")
+        res2 = subprocess.run([exe_path, str(size)], capture_output=True, text=True)
         if res2.returncode == 0:
             t_par_imp.append(float(parallel_re.search(res2.stdout).group(1)))
 
