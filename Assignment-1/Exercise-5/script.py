@@ -10,7 +10,7 @@ programs = {
     "sense_reversal": "./exercise_5_3"
 }
 
-threads = [2, 4, 8]
+threads = [2, 4, 8,16]
 iterations = [50,100 ,1000]
 runs = 5
 
