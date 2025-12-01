@@ -17,9 +17,9 @@ SRC3 = exercise_5_3.c
 all: $(TARGET1) $(TARGET2) $(TARGET3)
 
 $(TARGET1): $(SRC1)
-	$(CC) $(CFLAGS) -o $(TARGET1) $(SRC1)
-	$(CC) $(CFLAGS) -o $(TARGET2) $(SRC2)
-	$(CC) $(CFLAGS) -o $(TARGET3) $(SRC3)
+	$(CC) $(CFLAGS) -o $(TARGET1) $(SRC1) -lpthread
+	$(CC) $(CFLAGS) -o $(TARGET2) $(SRC2) -lpthread
+	$(CC) $(CFLAGS) -o $(TARGET3) $(SRC3) -lpthread
 
 run: $(TARGET1)
 	./$(TARGET1) 4 1000

@@ -1,68 +1,95 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <stdatomic.h>
+#include <sys/time.h>
 
-// Shared variables
-atomic_int count;
-atomic_int global_sense;
-
-struct thread_args {
-    int id;
-    int n;
-    int num_threads;
-};
-typedef struct thread_args* ThreadArgs;
+struct barrier_args{
+    int barrier_count ; // Number of threads that have reached the barrier
+    int n;     
+    int num_threads;   
+    int sense;   // 0 or 1 if we are using sense reversal  
+    pthread_mutex_t mutex;
+} ;
+typedef struct barrier_args* BarrierArgs;
 
 void* thread_function(void* arg);
+void barrier_init(BarrierArgs b,int n, int num_threads) ;
 
-int main(int argc, char* argv[]){
-           
-    // We check if the user  provided the correct number of arguments and we save them in variables 
-    if (argc != 3) {   
-        fprintf(stderr, "Wrong number of arguments. Usage: %s <degree_of_polynomials> <number_of_threads>\n", argv[0]);
-        return -1; 
-    }
-    int n =atoi(argv[1]);
-    int number_of_threads = atoi(argv[2]);
 
-    pthread_t threads[number_of_threads];
-    atomic_init(&count, 0);
-    atomic_init(&global_sense, 0);
-
-    for (int i = 0; i < number_of_threads; i++) {
-        ThreadArgs data = malloc(sizeof(struct thread_args));
-        data->id = i;
-        data->n = n;
-        data->num_threads = number_of_threads;
-        pthread_create(&threads[i], NULL, thread_function, (void*)data);
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s NUM_THREADS N\n", argv[0]);
+        return 1;
     }
 
-    for (int i = 0; i < number_of_threads; i++)
+    int num_threads = atoi(argv[1]);
+    int n = atoi(argv[2]);
+
+    //Start measuring time
+    struct timeval start, end;
+    double time_taken;
+    gettimeofday(&start, NULL);
+
+
+    pthread_t threads[num_threads];
+    BarrierArgs args= malloc(sizeof(struct barrier_args));
+    barrier_init(args, n, num_threads);
+
+    for (int i = 0; i < num_threads; i++) {
+        pthread_create(&threads[i], NULL, thread_function, (void*)args);
+    }
+
+    for (int i = 0; i < num_threads; i++) {
         pthread_join(threads[i], NULL);
+    }
 
-    printf("Finished barrier test with %d threads and %d iterations\n", number_of_threads, n);
+    pthread_mutex_destroy(&args->mutex);
+    free(args);
+
+    //End measuring time
+    gettimeofday(&end, NULL);
+    time_taken = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+    printf("Time taken: %f seconds\n", time_taken);
+
+
     return 0;
 }
 
-
 void* thread_function(void* arg) {
-    ThreadArgs data = (ThreadArgs)arg;
-    int local_sense = 0;   // must start same as global_sense
+    
+    BarrierArgs args = (BarrierArgs)arg;
 
-    for (int i = 0; i < data->n; i++) {
-        local_sense = !local_sense; 
-        int position = atomic_fetch_add(&count, 1);
+    
+    // barrier implementation using sense reversal
+    for (int i = 0; i < args->n; i++) {
 
-        if (position == data->num_threads - 1) {
-            atomic_store(&count, 0);
-            atomic_store(&global_sense, local_sense);
+        int local_sense = 1 - args->sense; // flip local sense
+        pthread_mutex_lock(&args->mutex);
+
+        args->barrier_count++;
+        
+        if (args->barrier_count == args->num_threads) {
+            args->barrier_count = 0;
+            args->sense = local_sense; // flip the sense
+            pthread_mutex_unlock(&args->mutex);
         } else {
-            while (atomic_load(&global_sense) != local_sense) {
+            pthread_mutex_unlock(&args->mutex);
+            while (args->sense != local_sense) {
                 // busy wait
             }
         }
+    
+        
+        
     }
-
+    
     return NULL;
+}
+
+void barrier_init(BarrierArgs b, int n, int num_threads) {
+    b->barrier_count = 0;
+    b->n = n;
+    b->num_threads = num_threads;
+    b->sense = 0;
+    pthread_mutex_init(&b->mutex, NULL);
 }

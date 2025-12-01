@@ -42,14 +42,13 @@ for program in programs:
 
 
  
-
+# Plotting the results
 labels = [f"T{t}/{i}" for t in threads for i in iterations]
 x = np.arange(len(labels))       
 width = 0.25            
  
 fig, ax = plt.subplots(figsize=(12,6))
 
-# Bars for each program
 for idx, program in enumerate(programs):
     y_values = [results[program][(t,i)] for t in threads for i in iterations]
     ax.bar(x + idx*width, y_values, width, label=program)
@@ -64,3 +63,33 @@ ax.legend()
 plt.tight_layout()
 plt.savefig("times.png", dpi=300)
 plt.show()
+
+#Create a summary table 
+table_data = []
+for t in threads:
+    for i in iterations:
+        row = [f"T{t}/{i}"]
+        for program in programs:
+            row.append(f"{results[program][(t,i)]:.6f}")
+        table_data.append(row)
+
+col_labels = ["Threads-Iterations"] + programs
+
+fig2, ax2 = plt.subplots(figsize=(12,4))
+ax2.axis('tight')
+ax2.axis('off')
+
+table = ax2.table(cellText=table_data, colLabels=col_labels,loc='center')
+table.auto_set_font_size(False)
+table.set_fontsize(10)
+table.scale(1.2, 1.2)
+
+for (row, col), cell in table.get_celld().items():
+    if row == 0: 
+        cell.set_facecolor("#ccccff")  
+        cell.set_text_props(weight='bold', color='black')
+
+plt.title("Summary of Average Times (Atomic vs Mutex vs RWLock)")
+plt.savefig("times_table.png", dpi=300)
+plt.show()
+
