@@ -22,9 +22,7 @@ $(TARGET1): $(SRC1)
 	$(CC) $(CFLAGS) -o $(TARGET3) $(SRC3) -lpthread
 
 run: $(TARGET1)
-	./$(TARGET1) 4 1000
-	./$(TARGET2) 4 1000
-	./$(TARGET3) 4 1000
+	python3 script.py
 
 # Clean up build files
 clean:
