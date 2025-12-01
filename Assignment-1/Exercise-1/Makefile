@@ -1,6 +1,6 @@
 # Compiler and flags
 CC = gcc
-CFLAGS =  #-Wall -O2 -pthread
+CFLAGS = 
 
 # Target executable
 TARGET = exercise_1
@@ -12,11 +12,11 @@ SRC = exercise_1.c
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+	$(CC) $(CFLAGS) -o $(TARGET) $(SRC) -lpthread
 
-# Run example (degree 1000, 4 threads)
 run: $(TARGET)
-	./$(TARGET) 1000 4
+	python3 script.py
+	
 # Clean up build files
 clean:
 	rm -f $(TARGET) *.o

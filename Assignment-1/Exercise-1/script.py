@@ -1,75 +1,126 @@
-import subprocess
-import matplotlib.pyplot as plt
-import re
+import subprocess 
+import matplotlib.pyplot as plt 
+import re 
+import numpy as np 
 
-# Degrees and thread counts
-polyonomial_degrees = [10**3, 10**4]
-thread_num =[2,4, 8, 16]
+# Degrees of polynomials and number of threads to test 
+polyonomial_degrees = [ 10**2,10**3, 10**4, 10**5 ] 
+thread_num =[4 ,8,16] 
 
-# Storage structures
-parallel_times = {t: [] for t in thread_num}   # parallel times for each thread count
-serial_time = []                                # serial time is same regardless of thread count
-init_time = []                                   # optional if you need it
 
-# Regex patterns
-init_re = re.compile(r"Initialization time: ([0-9.]+) seconds")
-serial_re = re.compile(r"Serial multiplication time: ([0-9.]+) seconds")
-parallel_re = re.compile(r"Parallel multiplication time: ([0-9.]+) seconds")
+# Array to store times 
+initialization_time = [] 
+serial_time = [] 
+parallel_time = [] 
 
-num_runs = 5
+# Regex patterns to capture times from output 
+init_re = re.compile(r"Initialization time: ([0-9.]+) seconds") 
+serial_re = re.compile(r"Serial multiplication time: ([0-9.]+) seconds") 
+parallel_re = re.compile(r"Parallel multiplication time: ([0-9.]+) seconds") 
+num_runs = 5 
 
-for degree in polyonomial_degrees:
-    print(f"Running for polynomial degree: {degree}")
+# Results dictionary: method -> {(threads, degree): avg_time}
+results = {"Initialization": {}, "Serial": {}, "Parallel": {}}
 
-    # serial and init times are same regardless of thread count → measure once (e.g., using 1 thread)
-    run_temp_init = []
-    run_temp_serial = []
+for degree in  polyonomial_degrees: 
+    print(f"Running for polynomial degree: {degree}") 
+    for threads in thread_num : 
+        print(f" Using {threads} threads") 
 
-    for run in range(num_runs):
-        result = subprocess.run(["./exercise_1", str(degree), "1"],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        output = result.stdout
-        run_temp_init.append(float(init_re.search(output).group(1)))
-        run_temp_serial.append(float(serial_re.search(output).group(1)))
+        # Temporary lists to store times for averaging 
+        run_temp_init = [] 
+        run_temp_serial = [] 
+        run_temp_parallel = [] 
 
-    init_time.append(sum(run_temp_init) / num_runs)
-    serial_time.append(sum(run_temp_serial) / num_runs)
+        for run in range(num_runs): 
+            print(f" Run {run + 1}/{num_runs}") 
+            result = subprocess.run(["./exercise_1", str(degree), str(threads)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) 
+            output = result.stdout 
 
-    # Now measure parallel times for 4/8/16 threads
-    for threads in thread_num:
-        print(f"  Using {threads} threads")
-
-        run_temp_parallel = []
-
-        for run in range(num_runs):
-            result = subprocess.run(["./exercise_1", str(degree), str(threads)],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    text=True)
-            output = result.stdout
-
+            # Extract times using regex 
+            run_temp_init.append(float(init_re.search(output).group(1))) 
+            run_temp_serial.append(float(serial_re.search(output).group(1))) 
             run_temp_parallel.append(float(parallel_re.search(output).group(1)))
 
-        parallel_times[threads].append(sum(run_temp_parallel) / num_runs)
+        results["Initialization"][(threads, degree)] = sum(run_temp_init) / num_runs
+        results["Serial"][(threads, degree)] = sum(run_temp_serial) / num_runs      
+        results["Parallel"][(threads, degree)] = sum(run_temp_parallel) / num_runs
 
-# ------------------ PLOTTING ------------------
 
-plt.figure(figsize=(10,5))
+# Plotting the results
+labels = [f"T{t}/D{d}" for t in thread_num for d in polyonomial_degrees]
+x = np.arange(len(labels))
+width = 0.35
 
-# Serial line (same for all thread counts)
-plt.plot(polyonomial_degrees, serial_time,
-         marker='o', linewidth=2, label="Serial", color="black")
+# Plot 1 Serial vs Parallel   
+fig1, ax1 = plt.subplots(figsize=(14,6))
 
-# Parallel lines for each thread count
+for idx, method in enumerate(["Serial", "Parallel"]):
+    y_values = [results[method][(t,d)] for t in thread_num for d in polyonomial_degrees]
+    ax1.bar(x + idx*width, y_values, width, label=method)
+
+ax1.set_xlabel("Threads-Degree")
+ax1.set_ylabel("Average Time (seconds)")
+ax1.set_title("Polynomial Multiplication: Serial vs Parallel")
+ax1.set_xticks(x + width/2)
+ax1.set_xticklabels(labels, rotation=45)
+ax1.legend()
+
+plt.tight_layout()
+plt.savefig("poly_times_serial_parallel.png", dpi=300)
+plt.show()
+
+# Plot 2 Initialization 
+fig2, ax2 = plt.subplots(figsize=(14,6))
+
+y_init = [results["Initialization"][(t,d)] for t in thread_num for d in polyonomial_degrees]
+ax2.bar(x, y_init, width, color="orange", label="Initialization")
+
+ax2.set_xlabel("Threads-Degree")
+ax2.set_ylabel("Average Time (seconds)")
+ax2.set_title("Polynomial Multiplication: Initialization Time")
+ax2.set_xticks(x)
+ax2.set_xticklabels(labels, rotation=45)
+ax2.legend()
+
+plt.tight_layout()
+plt.savefig("poly_times_initialization.png", dpi=300)
+plt.show()
+
+# Save times to an array 
+table_data = []
 for t in thread_num:
-    plt.plot(polyonomial_degrees, parallel_times[t],
-             marker='o', label=f"Parallel ({t} threads)")
+    for d in polyonomial_degrees:
+        serial_val = results['Serial'][(t,d)]
+        parallel_val = results['Parallel'][(t,d)]
+        improvement = serial_val / parallel_val if parallel_val > 0 else 0.0
 
-plt.xlabel("Polynomial Degree")
-plt.ylabel("Time (seconds)")
-plt.title("Polynomial Multiplication Performance")
-plt.legend()
-plt.xscale("log")
-plt.grid(True)
+        table_data.append([
+            f"T{t}/D{d}",
+            f"{serial_val:.6f}",
+            f"{parallel_val:.6f}",
+            f"{improvement:.2f}x"
+        ])
 
-plt.savefig("plot.png")
+col_labels = ["Threads-Degree", "Serial", "Parallel", "Improvement (Serial/Parallel)"]
+
+fig3, ax3 = plt.subplots(figsize=(12,4))
+ax3.axis('tight')
+ax3.axis('off')
+
+table = ax3.table(cellText=table_data,
+                  colLabels=col_labels,
+                  loc='center')
+
+table.auto_set_font_size(False)
+table.set_fontsize(10)
+table.scale(1.2, 1.2)
+
+for (row, col), cell in table.get_celld().items():
+    if row == 0: 
+        cell.set_facecolor("#ccccff") 
+        cell.set_text_props(weight='bold', color='black')
+
+plt.title("Summary of Average Times and Speedup")
+plt.savefig("poly_times_table.png", dpi=300)
+plt.show()
