@@ -1,5 +1,3 @@
-//TODO:Make parallel versions
-//TODO:Find effecient way to store starting vector to check results
 //TODO: Add option to perform this on special types of arrays
 
 #ifdef _OPENMP
@@ -12,7 +10,7 @@
 #include <sys/time.h>
 #include "../Shared/my_rand.h"
 
-// TODO: Parallelize this
+long numThreads;     // Number of threads to be created, global so functions can use it freely
 
 /// @brief Perform sparse Matrix-Vector multiplication with matrix represented in CSR format
 /// @param V Non-zero values of sparse matrix
@@ -23,18 +21,25 @@
 /// @return Vector with result
 int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int *restrict rowIdx, const int *restrict vector, int rowNum)
 {
+    int i,j;
     int *retVec = malloc(rowNum * sizeof(int));
     if (retVec == NULL)
     {
         fprintf(stderr, "Couldn't allocate memory for vector\n");
-        return 1;
+        return NULL;
     }
-    for (int i = 0; i < rowNum; i++)
+    // Only execute with OpenMP if there is compiler support, otherwise fall back to serial execution
+    #ifdef _OPENMP
+    #  pragma omp parallel for num_threads(numThreads)  \
+      default(none) private(i, j)  shared(V,colIdx, rowIdx, retVec, vector, rowNum)
+    #endif
+    for (i = 0; i < rowNum; i++)
     {
+        // Get row indices and loop over non-zero elements and place them in the correct index
         int rowStart = rowIdx[i];
         int rowEnd = rowIdx[i + 1];
         int res = 0;
-        for (int j = rowStart; j < rowEnd; j++)
+        for (j = rowStart; j < rowEnd; j++)
         {
             res += V[j] * vector[colIdx[j]];
         }
@@ -42,7 +47,6 @@ int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int 
     }
     return retVec;
 }
-//TODO: Parallelize
 /// @brief Multiply a matrix by a vector
 /// @param denseMatrix the matrix
 /// @param vector the vector being multiplied by denseMatrix
@@ -52,6 +56,15 @@ int* Mat_vect_mult(int *denseMatrix, int *vector, int numRows)
 {
     int i, j;
     int* retVec = malloc(numRows * sizeof(int));
+    if (retVec == NULL)
+    {
+        fprintf(stderr, "Couldn't allocate memory for vector\n");
+        return NULL;
+    }
+    #ifdef _OPENMP
+    #  pragma omp parallel for num_threads(numThreads)  \
+      default(none) private(i, j)  shared(denseMatrix, retVec, vector, numRows)
+    #endif
     for (i = 0; i < numRows; i++)
     {
         retVec[i] = 0;
@@ -66,7 +79,6 @@ int main(int argc, char *argv[])
     long numColumns;     // Number of columns/rows
     long zeroPercentage; // Percentage of zeroes in matrix
     long numLoops;       // Number of multiplications to be done
-    long numThreads;     // Number of threads to be created
     long numNonZero = 0;
     struct timeval start, end;
     double elapsed;
@@ -113,16 +125,25 @@ int main(int argc, char *argv[])
     }
 
     int *vector = malloc(numColumns * sizeof(int));
+    
     if (vector == NULL)
     {
         fprintf(stderr, "Couldn't allocate memory for vector\n");
         return 1;
     }
-    long seed = time(NULL);
+    // We make 2 vectors with the same contents, this is done so we can check the validity of the result against the dense matrix multiplication, which is considered correct
+    int* denseVector = malloc(numColumns *sizeof(int));
+    if (denseVector == NULL)
+        {
+            fprintf(stderr, "Couldn't allocate memory for vector\n");
+            return 1;
+        }
+    unsigned seed = time(NULL);
     for (int i = 0; i < numColumns; i++)
-    {
-        vector[i] = my_rand(&seed);
-
+    {   
+        unsigned randNum = my_rand(&seed);
+        vector[i] = randNum;
+        denseVector[i] = randNum;
         for (int j = 0; j < numColumns; j++)
         {
             int randNumber = my_rand(&seed) % 100;
@@ -137,6 +158,8 @@ int main(int argc, char *argv[])
             }
         }
     }
+    
+
     // Convert Dense array to CSR sparse array format, count time taken
     gettimeofday(&start, NULL);
     int *V = malloc(numNonZero * sizeof(int));            // Values of non zero values
@@ -148,10 +171,11 @@ int main(int argc, char *argv[])
     {
         for (int j = 0; j < numColumns; j++)
         {
-            if (denseArray[i*numColumns + j] != 0)
+            int value = denseArray[i * numColumns + j];
+            if (value != 0)
             {
-                V[numNonZero] = denseArray[i*numColumns + j];
-                colIdx[numNonZero] = i;
+                V[numNonZero] = value;
+                colIdx[numNonZero] = j;
                 numNonZero++;
             }
         }
@@ -161,6 +185,9 @@ int main(int argc, char *argv[])
     for (int i = 0; i < numLoops; i++)
     {
         int *newVec = matVecMultCSR(V, colIdx, rowIdx, vector, numColumns);
+        if(newVec == NULL){
+            return 1;
+        }
         free(vector);
         vector = newVec;
     }
@@ -170,7 +197,22 @@ int main(int argc, char *argv[])
 
     gettimeofday(&start, NULL);
     for(int i = 0; i < numLoops; i++){
-
+        int *newVec = Mat_vect_mult(denseArray, denseVector, numColumns);
+        if(newVec == NULL){
+            return 1;
+        }
+        free(denseVector);
+        denseVector = newVec;
     }
+    gettimeofday(&end, NULL);
+    elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+    printf("Matrix-vector multiplication with dense matrix took: %f seconds\n", elapsed);
 
+    for(int i = 0; i < numColumns ; i++){
+        if(vector[i] != denseVector[i]){
+            fprintf(stderr, "Results are incorrect!\n");
+            return 1;
+        }
+    }
+    printf("Results are correct!\n");
 }
