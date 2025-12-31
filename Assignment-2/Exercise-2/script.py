@@ -4,17 +4,19 @@ import re
 import statistics
 import matplotlib.pyplot as plt
 from collections import defaultdict
+import pandas as pd
+import seaborn as sns
 
 # Configuration
 EXECUTABLE = "./../build/Exercise-2/Solution2"
 GRAPH_DIR = "graphs"
-ITERATIONS = 4
+ITERATIONS = 1
 
 # Test Case Parameters
-SIZES = [1000, 2500, 5000, 7500, 10000]
-SPARSITIES = [0, 25, 50, 75, 90, 95, 99]
-THREADS = [2, 4, 8, 16]
-LOOPS = [1, 5, 10, 15, 20, 25]
+SIZES = [1000, 5000, 10000]
+SPARSITIES = [0, 50, 75, 90, 99]
+THREADS = [1,2, 4, 8]
+LOOPS = [1, 10,  20]
 
 def parse_output(output_str):
     """Extracts floating point seconds from the program output using regex."""
@@ -32,9 +34,6 @@ def parse_output(output_str):
 def run_benchmarks():
     if not os.path.exists(GRAPH_DIR):
         os.makedirs(GRAPH_DIR)
-
-    # Data structure to store all results: data[size][sparsity][threads][loops] = [list of samples]
-    # We will store dictionaries of {init, csr, dense}
     all_data = []
 
     total_configs = len(SIZES) * len(SPARSITIES) * len(THREADS) * len(LOOPS)
@@ -74,46 +73,102 @@ def run_benchmarks():
     generate_visuals(all_data)
 
 def generate_visuals(data):
-    # --- Graph 1: CSR vs Dense Performance by Sparsity ---
-    # Fix: Size=5000, Threads=8, Loops=10
-    subset = [d for d in data if d['size'] == 5000 and d['threads'] == 8 and d['loops'] == 10]
-    if subset:
-        subset.sort(key=lambda x: x['sparsity'])
-        plt.figure(figsize=(10, 6))
-        plt.plot([d['sparsity'] for d in subset], [d['csr'] for d in subset], 'o-', label='CSR Multiplication')
-        plt.plot([d['sparsity'] for d in subset], [d['dense'] for d in subset], 's--', label='Dense Multiplication')
-        plt.title('Performance vs. Sparsity (Size 5000, 8 Threads)')
-        plt.xlabel('Sparsity (% of Zeros)')
-        plt.ylabel('Average Time (s)')
-        plt.legend()
-        plt.grid(True)
-        plt.savefig(f"{GRAPH_DIR}/csr_vs_dense_sparsity.png")
+    df = pd.DataFrame(data)
+    sns.set_theme(style="darkgrid")
+    
+    # --- GLOBAL CALCULATIONS ---
+    df['csr_total'] = df['init'] + df['csr']
+    df['speedup'] = df['dense'] / df['csr_total']
+    df['init_pct'] = (df['init'] / df['csr_total'].replace(0, 1)) * 100
+    
+    # Standard filters for baseline graphs
+    df_5000_4th = df[(df['size'] == 5000) & (df['threads'] == 4)].copy()
 
-    # --- Graph 2: Thread Scalability (Speedup) ---
-    # Fix: Size=10000, Sparsity=90, Loops=10
-    subset = [d for d in data if d['size'] == 10000 and d['sparsity'] == 90 and d['loops'] == 10]
-    if subset:
-        subset.sort(key=lambda x: x['threads'])
+    # --- 1 & 2. Performance Baselines (Sparsity) ---
+    for name, col, pal, title in [
+        ("1_csr_total", "csr_total", "bright", "CSR Total Time"),
+        ("2_dense_vs", "dense", "autumn", "Dense Matrix Performance")
+    ]:
         plt.figure(figsize=(10, 6))
-        plt.plot([d['threads'] for d in subset], [d['csr'] for d in subset], 'D-', color='purple', label='CSR Time')
-        plt.title('Thread Scalability (Size 10000, 90% Sparse)')
-        plt.xlabel('Number of Threads')
-        plt.ylabel('Time (s)')
-        plt.xticks(THREADS)
-        plt.grid(True)
-        plt.savefig(f"{GRAPH_DIR}/thread_scaling.png")
+        sns.lineplot(data=df_5000_4th, x='sparsity', y=col, hue='loops', 
+                     marker='o', palette=pal, linewidth=2.5)
+        plt.title(f'{title} vs. Sparsity\n[Size: 5000, 4 Threads]', fontsize=14, fontweight='bold')
+        plt.legend(title="Iterations")
+        plt.savefig(f"{GRAPH_DIR}/{name}_vs_sparsity.png", dpi=300)
+        plt.close()
 
-    # --- Graph 3: Loops vs Time (Linearity Check) ---
-    # Fix: Size=5000, Sparsity=75, Threads=8
-    subset = [d for d in data if d['size'] == 5000 and d['sparsity'] == 75 and d['threads'] == 8]
-    if subset:
-        subset.sort(key=lambda x: x['loops'])
+    # --- 3. CSR Overhead Breakdowns---
+    overhead_configs = [
+        {"size": 5000, "loops": 10, "label": "3a_overhead_5k_10lp"},
+        {"size": 5000, "loops": 20, "label": "3b_overhead_5k_20lp"},
+        {"size": 10000, "loops": 10, "label": "3c_overhead_10k_10lp"}
+    ]
+
+    for config in overhead_configs:
         plt.figure(figsize=(10, 6))
-        plt.bar([str(d['loops']) for d in subset], [d['csr'] for d in subset], color='teal')
-        plt.title('Effect of Loop Count on Execution Time')
-        plt.xlabel('Number of Loops')
-        plt.ylabel('Total CSR Time (s)')
-        plt.savefig(f"{GRAPH_DIR}/loops_impact.png")
+        sub = df[(df['size'] == config['size']) & 
+                 (df['loops'] == config['loops']) & 
+                 (df['threads'] == 4)].reset_index(drop=True)
+        
+        if not sub.empty:
+            p1 = plt.bar(sub['sparsity'].astype(str), sub['init'], color='#1f77b4', label='CSR Initialization')
+            p2 = plt.bar(sub['sparsity'].astype(str), sub['csr'], bottom=sub['init'], color='#ff7f0e', label='CSR Multiplication')
+            
+            for i in range(len(sub)):
+                pct = sub.loc[i, 'init_pct']
+                total_h = sub.loc[i, 'csr_total']
+                plt.text(i, total_h + (total_h * 0.01), f'{pct:.1f}% Init', 
+                         ha='center', va='bottom', fontsize=9, fontweight='bold', color='#1f77b4')
+
+            plt.title(f"Initialization Overhead: {config['size']}x{config['size']} Matrix\n[{config['loops']} Loops, 4 Threads]", fontsize=13, fontweight='bold')
+            plt.ylabel('Total Time (s)')
+            plt.legend()
+            plt.savefig(f"{GRAPH_DIR}/{config['label']}.png", dpi=300)
+        plt.close()
+
+    # --- 4. Speedup Ratio ---
+    plt.figure(figsize=(10, 6))
+    df_5000_4th['Loop_Label'] = df_5000_4th['loops'].apply(lambda x: f"{x} Iterations")
+    sns.lineplot(data=df_5000_4th, x='sparsity', y='speedup', hue='Loop_Label', 
+                 palette="tab10", marker='D', linewidth=3)
+    plt.axhline(1, ls='--', color='black', alpha=0.7)
+    plt.title('CSR Speedup Factor over Dense\n[Size 5000, 4 Threads]', fontsize=14, fontweight='bold')
+    plt.savefig(f"{GRAPH_DIR}/4_speedup_ratio.png", dpi=300)
+    plt.close()
+
+    # --- 5a. Thread Scaling: DENSE ---
+    scale_df = df[(df['size'] == 10000) & (df['sparsity'] == 90) & (df['loops'] == 20)].copy()
+    
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(data=scale_df, x='threads', y='dense', marker='o', color='firebrick', linewidth=2.5)
+    plt.title('Parallel Scaling: Dense Matrix Multiplication\n[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
+    plt.xlabel('Number of Threads')
+    plt.ylabel('Time (s)')
+    plt.xticks(THREADS)
+    plt.grid(True, which="both", ls="-", alpha=0.5)
+    plt.savefig(f"{GRAPH_DIR}/5a_scaling_dense_10k.png", dpi=300)
+    plt.close()
+
+    # --- 5b. Thread Scaling: CSR ---
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(data=scale_df, x='threads', y='csr_total', marker='s', color='navy', linewidth=2.5)
+    plt.title('Parallel Scaling: CSR (Init + Mult)\n[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
+    plt.xlabel('Number of Threads')
+    plt.ylabel('Time (s)')
+    plt.xticks(THREADS)
+    plt.grid(True, which="both", ls="-", alpha=0.5)
+    plt.savefig(f"{GRAPH_DIR}/5b_scaling_csr_10k.png", dpi=300)
+    plt.close()
+
+    # --- 6. Efficiency Heatmap ---
+    plt.figure(figsize=(12, 7))
+    df_large = df[df['size'] == 10000]
+    if not df_large.empty:
+        pivot_data = df_large.pivot_table(index='loops', columns='sparsity', values='speedup', aggfunc='mean')
+        sns.heatmap(pivot_data, annot=True, cmap="RdYlGn", center=1.0)
+        plt.title('CSR Speedup Landscape (Size 10000)\n[Green = CSR Wins | Red = Dense Wins]', fontsize=15, fontweight='bold')
+        plt.savefig(f"{GRAPH_DIR}/6_best_efficiency_landscape.png", dpi=300)
+    plt.close()
 
 if __name__ == "__main__":
     if not os.path.exists(EXECUTABLE):
