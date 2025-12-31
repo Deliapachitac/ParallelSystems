@@ -10,7 +10,7 @@ import seaborn as sns
 # Configuration
 EXECUTABLE = "./../build/Exercise-2/Solution2"
 GRAPH_DIR = "graphs"
-ITERATIONS = 1
+ITERATIONS = 4
 
 # Test Case Parameters
 SIZES = [1000, 5000, 10000]
