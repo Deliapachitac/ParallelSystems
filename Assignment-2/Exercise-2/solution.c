@@ -167,13 +167,14 @@ int main(int argc, char *argv[])
     int *rowIdx = malloc((numColumns + 1) * sizeof(int)); // Encodes the index in V and COL_INDEX where the given row starts
     numNonZero = 0;
     rowIdx[0] = 0;
+    //Try to make this parallel
     for (int i = 0; i < numColumns; i++)
     {
         for (int j = 0; j < numColumns; j++)
         {
             int value = denseArray[i * numColumns + j];
             if (value != 0)
-            {
+            {   
                 V[numNonZero] = value;
                 colIdx[numNonZero] = j;
                 numNonZero++;
@@ -181,7 +182,10 @@ int main(int argc, char *argv[])
         }
         rowIdx[i + 1] = numNonZero;
     }
-
+    gettimeofday(&end, NULL);
+    elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+    printf("Matrix-vector Initialization with CSR format took: %f seconds\n", elapsed);
+    gettimeofday(&start, NULL);
     for (int i = 0; i < numLoops; i++)
     {
         int *newVec = matVecMultCSR(V, colIdx, rowIdx, vector, numColumns);
@@ -193,7 +197,7 @@ int main(int argc, char *argv[])
     }
     gettimeofday(&end, NULL);
     elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
-    printf("Matrix-vector initialization and multiplication with CSR format took: %f seconds\n", elapsed);
+    printf("Matrix-vector multiplication with CSR format took: %f seconds\n", elapsed);
 
     gettimeofday(&start, NULL);
     for(int i = 0; i < numLoops; i++){
