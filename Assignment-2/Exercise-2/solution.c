@@ -31,7 +31,7 @@ int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int 
     // Only execute with OpenMP if there is compiler support, otherwise fall back to serial execution
     #ifdef _OPENMP
     #  pragma omp parallel for num_threads(numThreads)  \
-      schedule(dynamic) default(none) private(i, j)  shared(V,colIdx, rowIdx, retVec, vector, rowNum) 
+      default(none) private(i, j)  shared(V,colIdx, rowIdx, retVec, vector, rowNum) 
     #endif
     for (i = 0; i < rowNum; i++)
     {
@@ -63,7 +63,7 @@ int* Mat_vect_mult(int *denseMatrix, int *vector, int numRows)
     }
     #ifdef _OPENMP
     #  pragma omp parallel for num_threads(numThreads)  \
-      schedule(dynamic) default(none) private(i, j)  shared(denseMatrix, retVec, vector, numRows)
+       default(none) private(i, j)  shared(denseMatrix, retVec, vector, numRows)
     #endif
     for (i = 0; i < numRows; i++)
     {
@@ -233,8 +233,7 @@ int main(int argc, char *argv[])
     int* tempColIdx = malloc(numColumns * numColumns * sizeof(int));
     int* rowNNZ = malloc(numColumns * sizeof(int));
     // Collect results row wise
-    #pragma omp parallel for num_threads(numThreads) \
-    schedule(dynamic)
+    #pragma omp parallel for num_threads(numThreads) 
     for(int row = 0; row < numColumns; row++){
         int nnz = 0;
         for(int col = 0; col < numColumns ; col++){
@@ -253,8 +252,7 @@ int main(int argc, char *argv[])
     }
     numNonZero = rowIdx[numColumns]; // Total count
     // Flatten them can also be parallel
-    #pragma omp parallel for num_threads(numThreads) \
-    schedule(dynamic)
+    #pragma omp parallel for num_threads(numThreads) 
     for(int i = 0; i < numColumns; i++) {
         int startPos = rowIdx[i];
         for(int j = 0; j < rowNNZ[i]; j++) {
