@@ -31,7 +31,7 @@ int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int 
     // Only execute with OpenMP if there is compiler support, otherwise fall back to serial execution
     #ifdef _OPENMP
     #  pragma omp parallel for num_threads(numThreads)  \
-      default(none) private(i, j)  shared(V,colIdx, rowIdx, retVec, vector, rowNum)
+      schedule(dynamic) default(none) private(i, j)  shared(V,colIdx, rowIdx, retVec, vector, rowNum) 
     #endif
     for (i = 0; i < rowNum; i++)
     {
@@ -63,7 +63,7 @@ int* Mat_vect_mult(int *denseMatrix, int *vector, int numRows)
     }
     #ifdef _OPENMP
     #  pragma omp parallel for num_threads(numThreads)  \
-      default(none) private(i, j)  shared(denseMatrix, retVec, vector, numRows)
+      schedule(dynamic) default(none) private(i, j)  shared(denseMatrix, retVec, vector, numRows)
     #endif
     for (i = 0; i < numRows; i++)
     {
@@ -72,6 +72,67 @@ int* Mat_vect_mult(int *denseMatrix, int *vector, int numRows)
             retVec[i] += denseMatrix[i * numRows + j] * vector[j];
     }
     return retVec;
+}
+
+int* create_diagonal_matrix(int n) {
+    int* matrix = (int*)calloc(n * n, sizeof(int));
+    if (matrix == NULL) return NULL;
+    unsigned seed = time(NULL);
+    for (int i = 0; i < n; i++) {
+        matrix[i * n + i] = my_rand(&seed) % 10;
+    }
+    return matrix;
+}
+
+
+
+int* create_block_sparse_int(int n, int block_size, int num_blocks) {
+    int* matrix = (int*)calloc(n * n, sizeof(int));
+    if (!matrix) return NULL;
+
+    for (int b = 0; b < num_blocks; b++) {
+        // Randomly pick top-left corner aligned to block boundaries
+        int row_start = (rand() % (n / block_size)) * block_size;
+        int col_start = (rand() % (n / block_size)) * block_size;
+
+        for (int i = 0; i < block_size; i++) {
+            for (int j = 0; j < block_size; j++) {
+                matrix[(row_start + i) * n + (col_start + j)] = rand() % 100 + 1;
+            }
+        }
+    }
+    return matrix;
+}
+
+int* create_power_law_int(int n, int hub_density) {
+    int* matrix = (int*)calloc(n * n, sizeof(int));
+    if (!matrix) return NULL;
+
+    for (int i = 0; i < n; i++) {
+        // Every 20th row is a "hub" with many entries
+        int entries_to_fill = (i % 20 == 0) ? (n / hub_density) : (rand() % 5);
+
+        for (int k = 0; k < entries_to_fill; k++) {
+            int j = rand() % n;
+            matrix[i * n + j] = rand() % 100 + 1;
+        }
+    }
+    return matrix;
+}
+
+int* create_banded_int(int n, int bandwidth) {
+    int* matrix = (int*)calloc(n * n, sizeof(int));
+    if (!matrix) return NULL;
+
+    for (int i = 0; i < n; i++) {
+        int start = (i - bandwidth < 0) ? 0 : i - bandwidth;
+        int end = (i + bandwidth >= n) ? n - 1 : i + bandwidth;
+
+        for (int j = start; j <= end; j++) {
+            matrix[i * n + j] = rand() % 100 + 1;
+        }
+    }
+    return matrix;
 }
 
 int main(int argc, char *argv[])
@@ -172,7 +233,8 @@ int main(int argc, char *argv[])
     int* tempColIdx = malloc(numColumns * numColumns * sizeof(int));
     int* rowNNZ = malloc(numColumns * sizeof(int));
     // Collect results row wise
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(numThreads) \
+    schedule(dynamic)
     for(int row = 0; row < numColumns; row++){
         int nnz = 0;
         for(int col = 0; col < numColumns ; col++){
@@ -191,7 +253,8 @@ int main(int argc, char *argv[])
     }
     numNonZero = rowIdx[numColumns]; // Total count
     // Flatten them can also be parallel
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(numThreads) \
+    schedule(dynamic)
     for(int i = 0; i < numColumns; i++) {
         int startPos = rowIdx[i];
         for(int j = 0; j < rowNNZ[i]; j++) {
