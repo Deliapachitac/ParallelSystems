@@ -52,22 +52,31 @@ int main(int argc, char* argv[]) {
 
     
     /////////////// PARALLEL MULTIPLICATION ///////////////         
-    for (int i = 0; i <= 2 * n; i++) result_parallel[i] = 0;
-
+    
     start = omp_get_wtime();
     
-    //Here is were the parallel multiplication happens
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i <= 2 * n; i++) {
-        for (int j = 0; j <= n; j++) {
-            int k = i - j;
-            if (k >= 0 && k <= n) {
-                result_parallel[i] += P1[j] * P2[k];
-            }
-        }
+    // Initialize parallel result
+    for (int i = 0; i <= 2*n; i++) {
+        result_parallel[i] = 0;
     }
+
+    //Creates a parallel block and distributes the iterations of the for loop amogn the threads
+    // The usage of schedule(static)  divides the iterations into equal sized chunks
+    #pragma omp parallel for  schedule( static)
+    for (int i = 0; i <= 2*n; i++ ) {
+
+        // Calculate the starting and ending index for the inner loop based on the current value of i
+        int start=(i > n) ?(i-n):0 ;  
+        int end =(i <n) ? i :n ;     
+          
+        for (int j =start; j<= end; j++ ){  
+            result_parallel[i] += P1[j] *P2[i-j];
+        }
+       
+    }
+
     end = omp_get_wtime();
-    parallel_time = end - start;
+    parallel_time = end - start;  
     printf("Parallel multiplication time: %f seconds\n", parallel_time);
 
 
@@ -84,7 +93,7 @@ int main(int argc, char* argv[]) {
 
     // Free the allocated memory
     free(P1);
-    free(P2);
+    free(P2) ;
     free(result_serial);
     free(result_parallel);
 

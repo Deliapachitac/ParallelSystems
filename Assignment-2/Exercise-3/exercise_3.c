@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-#include <string.h>
+#include <time.h>   
+#include <string.h> 
 #include <omp.h>
 
 void merge(int *array,int  n, int  *temp) {
@@ -41,8 +41,8 @@ void mergesort_serial(int *array, int n, int *temp) {
     }
 
     // Divide and work on each half separately 
-    mergesort_serial(array, n / 2, temp);                 
-    mergesort_serial(array + n / 2, n - n / 2, temp + n / 2); 
+    mergesort_serial(array, n/2, temp);                 
+    mergesort_serial(array + n/2, n- n/2 , temp+ n/2); 
 
     //Merge the two results
     merge(array, n, temp);
@@ -51,16 +51,16 @@ void mergesort_serial(int *array, int n, int *temp) {
 void mergesort_parallel(int *array, int n, int *temp) {
     
     //if the array has one or no elements  it is already sorted 
-    if (n < 2){
-        return;
+    if (n< 2){
+        return ; 
     }
 
     // Divide and work on each half separately using tasks
     #pragma omp task
-    mergesort_parallel(array, n / 2, temp);
-    
-    #pragma omp task
-    mergesort_parallel(array + n / 2, n - n / 2, temp + n / 2);
+    mergesort_parallel(array, n/2 ,temp);
+          
+    #pragma omp task        
+    mergesort_parallel(array + n/2, n - n/2 , temp+ n/2);
 
     // Wait for both tasks to complete
     #pragma omp taskwait
@@ -78,14 +78,14 @@ int main(int argc, char *argv[]) {
 
     int n = atoi(argv[1]);
     char mode = argv[2][0]; // 's' for serial, 'p' for parallel we take only the first character
-    int num_threads = atoi(argv[3]);
+    int num_threads  = atoi(argv[3]);
 
     // Allocate memory for the array and a temporary array
     int *array = (int *)malloc(n * sizeof(int));
-    int *temp = (int *)malloc(n * sizeof(int));
+    int *temp =(int *)malloc(n * sizeof(int));
 
     // Initialize the array with random integers
-    srand(42);
+    srand(time(NULL));
     for (int i = 0; i < n; i++) {
         array[i] = rand();
     }
@@ -116,8 +116,6 @@ int main(int argc, char *argv[]) {
         printf("Parallel mergesort time: %f seconds\n", end - start);    }
 
 
-
-    
     
     ////////////// VERIFY CORRECTNESS ///////////////
     int flag  = 1;
@@ -127,7 +125,7 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
-    printf("Serial mergesort correctness: %s\n", flag ? "OK" : "Mismatch");
+    printf("Mergesort correctness: %s\n", flag ? "OK" : "Mismatch");
 
     // Free allocated memory 
     free(array);

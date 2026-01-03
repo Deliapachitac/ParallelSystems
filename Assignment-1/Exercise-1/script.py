@@ -4,7 +4,7 @@ import re
 import numpy as np 
 import os
 # Degrees of polynomials and number of threads to test 
-polyonomial_degrees = [ 10**2,10**3, 10**4, 10**5 ] 
+polyonomial_degrees = [ 10**2,10**3, 10**4] 
 thread_num =[4 ,8,16] 
 
 
