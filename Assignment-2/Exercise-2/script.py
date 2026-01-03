@@ -15,7 +15,7 @@ ITERATIONS = 4
 # Test Case Parameters
 SIZES = [1000, 5000, 10000]
 SPARSITIES = [0, 50, 75, 90, 99]
-THREADS = [1,2, 4, 8]
+THREADS = [2, 4]
 LOOPS = [1, 10,  20]
 
 def parse_output(output_str):
@@ -133,41 +133,19 @@ def generate_visuals(data):
                  palette="tab10", marker='D', linewidth=3)
     plt.axhline(1, ls='--', color='black', alpha=0.7)
     plt.title('CSR Speedup Factor over Dense\n[Size 5000, 4 Threads]', fontsize=14, fontweight='bold')
-    plt.savefig(f"{GRAPH_DIR}/4_speedup_ratio.png", dpi=300)
+    plt.savefig(f"{GRAPH_DIR}/speedup_ratio.png", dpi=300)
     plt.close()
 
-    # --- 5a. Thread Scaling: DENSE ---
-    scale_df = df[(df['size'] == 10000) & (df['sparsity'] == 90) & (df['loops'] == 20)].copy()
-    
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=scale_df, x='threads', y='dense', marker='o', color='firebrick', linewidth=2.5)
-    plt.title('Parallel Scaling: Dense Matrix Multiplication\n[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
-    plt.xlabel('Number of Threads')
-    plt.ylabel('Time (s)')
-    plt.xticks(THREADS)
-    plt.grid(True, which="both", ls="-", alpha=0.5)
-    plt.savefig(f"{GRAPH_DIR}/5a_scaling_dense_10k.png", dpi=300)
-    plt.close()
+  
 
-    # --- 5b. Thread Scaling: CSR ---
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(data=scale_df, x='threads', y='csr_total', marker='s', color='navy', linewidth=2.5)
-    plt.title('Parallel Scaling: CSR (Init + Mult)\n[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
-    plt.xlabel('Number of Threads')
-    plt.ylabel('Time (s)')
-    plt.xticks(THREADS)
-    plt.grid(True, which="both", ls="-", alpha=0.5)
-    plt.savefig(f"{GRAPH_DIR}/5b_scaling_csr_10k.png", dpi=300)
-    plt.close()
-
-    # --- 6. Efficiency Heatmap ---
+    # --- 5. Efficiency Heatmap ---
     plt.figure(figsize=(12, 7))
     df_large = df[df['size'] == 10000]
     if not df_large.empty:
         pivot_data = df_large.pivot_table(index='loops', columns='sparsity', values='speedup', aggfunc='mean')
         sns.heatmap(pivot_data, annot=True, cmap="RdYlGn", center=1.0)
         plt.title('CSR Speedup Landscape (Size 10000)\n[Green = CSR Wins | Red = Dense Wins]', fontsize=15, fontweight='bold')
-        plt.savefig(f"{GRAPH_DIR}/6_best_efficiency_landscape.png", dpi=300)
+        plt.savefig(f"{GRAPH_DIR}/best_efficiency_landscape.png", dpi=300)
     plt.close()
 
 if __name__ == "__main__":
