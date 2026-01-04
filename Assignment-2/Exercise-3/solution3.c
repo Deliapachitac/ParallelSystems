@@ -69,6 +69,27 @@ void mergesort_parallel(int *array, int n, int *temp) {
     merge(array, n, temp);
 }
 
+void mergesort_parallel_optimal(int *array, int n, int *temp) {
+    
+    //if the array has one or no elements  it is already sorted 
+    if (n< 2){
+        return ; 
+    }
+
+    //The condition if(n > 1000) prevents the creation of too many tasks for small segments of the array (overhead)
+    #pragma omp task shared(array, temp) if(n > 1000)
+    mergesort_parallel_optimal(array, n/2, temp);
+
+    #pragma omp task shared(array, temp) if(n > 1000)
+    mergesort_parallel_optimal(array + n/2, n - n/2, temp + n/2);
+    
+    // We wait for both tasks to complete
+    #pragma omp taskwait
+    merge(array, n, temp);
+
+
+}
+
 int main(int argc, char *argv[]) {
 
     if (argc != 4 && argc!= 3) {  
@@ -107,9 +128,9 @@ int main(int argc, char *argv[]) {
         omp_set_num_threads(num_threads);
         
         #pragma omp parallel
-        #pragma omp single
         {
-            mergesort_parallel(array, n, temp);
+            #pragma omp single
+            mergesort_parallel_optimal(array, n, temp);
         }
 
         end = omp_get_wtime();

@@ -8,7 +8,7 @@ import os
 array_sizes = [10**3 ,10**4, 10**5, 10**6] 
 thread_num = [2, 4, 8] 
 
-num_runs = 3 
+num_runs = 4
 
 # Regex patterns to capture times from output 
 serial_re = re.compile(r"Serial mergesort time: ([0-9.]+) seconds") 
@@ -19,7 +19,7 @@ serial_results = {}   # size -> avg_time
 parallel_results = {} # (size, threads) -> avg_time
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-exe_path = os.path.join(script_dir, "exercise_3") 
+exe_path = os.path.join(script_dir, "solution3") 
 
 for size in array_sizes: 
     print(f"\n--- Testing Array Size: {size} ---") 

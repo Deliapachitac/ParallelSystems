@@ -4,8 +4,8 @@ import re
 import numpy as np 
 import os
 # Degrees of polynomials and number of threads to test 
-polyonomial_degrees = [ 10**2,10**3, 10**4] 
-thread_num =[4 ,8,16] 
+polyonomial_degrees = [ 10**2,10**3, 10**4, 10**5 ] 
+thread_num =[2,4 ,8] 
 
 
 # Array to store times 
@@ -17,7 +17,7 @@ parallel_time = []
 init_re = re.compile(r"Initialization time: ([0-9.]+) seconds") 
 serial_re = re.compile(r"Serial multiplication time: ([0-9.]+) seconds") 
 parallel_re = re.compile(r"Parallel multiplication time: ([0-9.]+) seconds") 
-num_runs = 5 
+num_runs = 4
 
 # Results dictionary: method -> {(threads, degree): avg_time}
 results = {"Initialization": {}, "Serial": {}, "Parallel": {}}
@@ -36,7 +36,7 @@ for degree in  polyonomial_degrees:
             print(f" Run {run + 1}/{num_runs}") 
 
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            exe_path = os.path.join(script_dir, "exercise_1")
+            exe_path = os.path.join(script_dir, "solution1")
            
             result = subprocess.run([exe_path, str(degree), str(threads)],
                                     stdout=subprocess.PIPE,
