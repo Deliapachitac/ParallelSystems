@@ -3,6 +3,7 @@
 #include <time.h>   
 #include <string.h> 
 #include <omp.h>
+#include "../Shared/my_rand.h"
 
 void merge(int *array,int  n, int  *temp) {
 
@@ -104,11 +105,13 @@ int main(int argc, char *argv[]) {
     // Allocate memory for the array and a temporary array
     int *array = (int *)malloc(n * sizeof(int));
     int *temp =(int *)malloc(n * sizeof(int));
+    int *backup = (int *)malloc(n * sizeof(int));
 
     // Initialize the array with random integers
-    srand(time(NULL));
+    unsigned seed = time(NULL);
     for (int i = 0; i < n; i++) {
-        array[i] = rand();
+        array[i] = my_rand(&seed);
+        backup[i] = array[i];
     }
 
     double start, end;
@@ -130,12 +133,24 @@ int main(int argc, char *argv[]) {
         #pragma omp parallel
         {
             #pragma omp single
-            mergesort_parallel_optimal(array, n, temp);
+            mergesort_parallel(array, n, temp);
         }
 
         end = omp_get_wtime();
-        printf("Parallel mergesort time: %f seconds\n", end - start);    }
+        printf("Parallel mergesort time: %f seconds\n", end - start);  
+        
 
+        start = omp_get_wtime();
+        #pragma omp parallel
+        {
+            #pragma omp single
+            mergesort_parallel_optimal(backup, n, temp); 
+        }
+        end = omp_get_wtime();
+        printf("Parallel mergesort optimal time: %f seconds\n", end - start);
+        
+
+    }
 
     
     ////////////// VERIFY CORRECTNESS ///////////////
@@ -146,11 +161,21 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
-    printf("Mergesort correctness: %s\n", flag ? "OK" : "Mismatch");
+    printf("Mergesort correctness: %s\n", flag ? "OK" : "Wrong Result");
+
+    int flag_optimal  = 1;
+    for (int i = 0; i < n-1;i++) {       
+        if (backup[i] > backup[i+1]) {
+            flag_optimal = 0;
+            break;
+        }
+    }
+    printf("Mergesort optimal correctness: %s\n", flag_optimal ? "OK" : "Wrong Result");
 
     // Free allocated memory 
     free(array);
     free(temp);
+    free(backup);
 
     return 0;
 }
