@@ -13,15 +13,9 @@
 /// @param vector The vector we are multiplying with
 /// @param rowNum The number of rows/columns of the matrix
 /// @return Vector with result
-int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int *restrict rowIdx, const int *restrict vector, int rowNum)
+void matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int *restrict rowIdx, const int *restrict vector, int *restrict retVec, int rowNum)
 {
     int i, j;
-    int *retVec = malloc(rowNum * sizeof(int));
-    if (retVec == NULL)
-    {
-        fprintf(stderr, "Couldn't allocate memory for vector\n");
-        return NULL;
-    }
     for (i = 0; i < rowNum; i++)
     {
         // Get row indices and loop over non-zero elements and place them in the correct index
@@ -34,30 +28,21 @@ int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int 
         }
         retVec[i] = res;
     }
-    return retVec;
 }
 /// @brief Multiply a matrix by a vector
 /// @param denseMatrix the matrix
 /// @param vector the vector being multiplied by denseMatrix
 /// @param numRows the number of rows/columns of the matrix
 /// @return The resulting vector after the multiplication
-int *Mat_vect_mult(int *denseMatrix, int *vector, int numRows, int myRows)
+void Mat_vect_mult(const int *restrict denseMatrix,const int *restrict vector,int *restrict retVec, int numRows, int myRows)
 {
     int i, j;
-    int *retVec = malloc(numRows * sizeof(int));
-    if (retVec == NULL)
-    {
-        fprintf(stderr, "Couldn't allocate memory for vector\n");
-        return NULL;
-    }
-
     for (i = 0; i < myRows; i++)
     {
         retVec[i] = 0;
         for (j = 0; j < numRows; j++)
             retVec[i] += denseMatrix[i * numRows + j] * vector[j];
     }
-    return retVec;
 }
 
 int *create_diagonal_matrix(int n)
@@ -78,18 +63,18 @@ int *create_block_sparse_int(int n, int block_size, int num_blocks)
     int *matrix = (int *)calloc(n * n, sizeof(int));
     if (!matrix)
         return NULL;
-
+    unsigned seed = time(NULL);
     for (int b = 0; b < num_blocks; b++)
     {
         // Randomly pick top-left corner aligned to block boundaries
-        int row_start = (rand() % (n / block_size)) * block_size;
-        int col_start = (rand() % (n / block_size)) * block_size;
+        int row_start = (my_rand(&seed) % (n / block_size)) * block_size;
+        int col_start = (my_rand(&seed) % (n / block_size)) * block_size;
 
         for (int i = 0; i < block_size; i++)
         {
             for (int j = 0; j < block_size; j++)
             {
-                matrix[(row_start + i) * n + (col_start + j)] = rand() % 100 + 1;
+                matrix[(row_start + i) * n + (col_start + j)] = my_rand(&seed) % 100 + 1;
             }
         }
     }
@@ -102,15 +87,16 @@ int *create_power_law_int(int n, int hub_density)
     if (!matrix)
         return NULL;
 
+    unsigned seed = time(NULL);
     for (int i = 0; i < n; i++)
     {
         // Every 20th row is a "hub" with many entries
-        int entries_to_fill = (i % 20 == 0) ? (n / hub_density) : (rand() % 5);
+        int entries_to_fill = (i % 20 == 0) ? (n / hub_density) : (my_rand(&seed) % 5);
 
         for (int k = 0; k < entries_to_fill; k++)
         {
-            int j = rand() % n;
-            matrix[i * n + j] = rand() % 100 + 1;
+            int j = my_rand(&seed) % n;
+            matrix[i * n + j] = my_rand(&seed) % 100 + 1;
         }
     }
     return matrix;
@@ -121,7 +107,7 @@ int *create_banded_int(int n, int bandwidth)
     int *matrix = (int *)calloc(n * n, sizeof(int));
     if (!matrix)
         return NULL;
-
+    unsigned seed = time(NULL);
     for (int i = 0; i < n; i++)
     {
         int start = (i - bandwidth < 0) ? 0 : i - bandwidth;
@@ -129,7 +115,7 @@ int *create_banded_int(int n, int bandwidth)
 
         for (int j = start; j <= end; j++)
         {
-            matrix[i * n + j] = rand() % 100 + 1;
+            matrix[i * n + j] = my_rand(&seed) % 100 + 1;
         }
     }
     return matrix;
@@ -326,14 +312,14 @@ int main(int argc, char *argv[])
         gatherDispls[i] = total;
         total += work;
     }
-
+    int* localVec = malloc(myRows * sizeof(int));
     for (int i = 0; i < numLoops; i++)
     {
-        int *localVec = matVecMultCSR(V, colIdx, localRowIdx, vector, myRows);
+        matVecMultCSR(V, colIdx, localRowIdx, vector, localVec, myRows);
         // Use Allgather to avoid broadcasting vector again
         MPI_Allgatherv(localVec, myRows, MPI_INT, vector, gatherCounts, gatherDispls, MPI_INT, MPI_COMM_WORLD);
-        free(localVec);
     }
+
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
@@ -349,10 +335,10 @@ int main(int argc, char *argv[])
         gettimeofday(&start, NULL);
     for (int i = 0; i < numLoops; i++)
     {
-        int *localVec = Mat_vect_mult(localDenseMatrix, denseVector, numColumns, myRows);
+        Mat_vect_mult(localDenseMatrix, denseVector, localVec,numColumns, myRows);
         MPI_Allgatherv(localVec, myRows, MPI_INT, denseVector, gatherCounts, gatherDispls, MPI_INT, MPI_COMM_WORLD);
-        free(localVec);
     }
+    free(localVec);
     free(localDenseMatrix);
     if (myRank == 0)
     {
