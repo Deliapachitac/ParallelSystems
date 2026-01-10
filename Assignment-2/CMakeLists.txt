@@ -10,7 +10,7 @@ endif()
 
 add_subdirectory(Exercise-1)
 add_subdirectory(Exercise-2)
+add_subdirectory(Exercise-3)
 
 
 add_subdirectory(Shared)
-
