@@ -4,6 +4,7 @@ BUILD_DIR = build
 SRC_MYRAND = Shared/my_rand.c
 SRC1 = Exercise-1/solution.c
 SRC2 = Exercise-2/solution.c
+SRC2_SERIAL = Exercise-2/solution_serial.c
 SRC3 = Exercise-3/solution.c
 
 all: Ex1 Ex2 Ex3
@@ -16,6 +17,7 @@ Ex1: $(SRC1)
 Ex2: $(SRC2) $(SRC_MYRAND)
 	@mkdir -p $(BUILD_DIR)/Exercise-2
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/Exercise-2/solution $(SRC2) $(SRC_MYRAND)
+	gcc $(CFLAGS) -o $(BUILD_DIR)/Exercise-2/solution_serial $(SRC2_SERIAL) $(SRC_MYRAND)
 
 Ex3: $(SRC3) $(SRC_MYRAND)
 	@mkdir -p $(BUILD_DIR)/Exercise-3

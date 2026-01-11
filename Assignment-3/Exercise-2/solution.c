@@ -130,6 +130,7 @@ int main(int argc, char *argv[])
     long params[3];
     struct timeval start, end;
     double elapsed;
+    double combined;
     int myRank;
     int commSz;
     MPI_Init(&argc, &argv);
@@ -257,6 +258,7 @@ int main(int argc, char *argv[])
         }
         gettimeofday(&end, NULL);
         elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+        combined = elapsed;
         printf("Matrix-vector Initialization with CSR format took: %f seconds\n", elapsed);
         int totalDspls = 0;
         int sz = numColumns / commSz;
@@ -309,6 +311,7 @@ int main(int argc, char *argv[])
     {
         gettimeofday(&end, NULL);
         elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+        combined += elapsed;
         printf("Scattering the necessary data for CSR took: %f seconds\n", elapsed);
         free(V);
         free(colIdx);
@@ -357,7 +360,9 @@ int main(int argc, char *argv[])
     {
         gettimeofday(&end, NULL);
         elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+        combined += elapsed; 
         printf("Matrix-vector multiplication with CSR format took: %f seconds\n", elapsed);
+        printf("Total time spent initializing and performing multiplication with CSR format took: %f seconds\n", combined);
     }
 
     free(localRowIdx);
