@@ -23,7 +23,9 @@ Ex3: $(SRC3) $(SRC_MYRAND)
 	@mkdir -p $(BUILD_DIR)/Exercise-3
 	$(CC) $(CFLAGS) -fopenmp -o $(BUILD_DIR)/Exercise-3/solution $(SRC3) $(SRC_MYRAND) 
 
+script2:
+	python3 Exercise-2/script.py
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all clean Ex1 Ex2 Ex3
+.PHONY: all clean Ex1 Ex2 Ex3 script2

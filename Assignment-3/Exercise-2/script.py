@@ -7,16 +7,16 @@ import pandas as pd
 import seaborn as sns
 
 # Configuration
-RUNNER = "mpiexec --hostfile ../hostfile -n "
-EXECUTABLE = "./../build/Exercise-2/solution"
-EXECUTABLE_SERIAL = "./../build/Exercise-2/solution_serial"
+RUNNER = "mpiexec -n "
+EXECUTABLE = "./build/Exercise-2/solution"
+EXECUTABLE_SERIAL = "./build/Exercise-2/solution_serial"
 GRAPH_DIR = "graphs"
 ITERATIONS = 4
 
 # Test Case Parameters
 SIZES = [1000, 5000, 10000]
 SPARSITIES = [0, 50, 75, 90, 99]
-PROCESSES = [1, 2, 4, 8, 16]
+PROCESSES = [1, 2, 4, 8]
 LOOPS = [1, 10, 20]
 
 def parse_output(output_str):
@@ -83,9 +83,10 @@ def generate_visuals(data):
     sns.set_theme(style="darkgrid")
     
     # --- CALCULATIONS ---
+    df['csr_combined'] = df['init'] + df['csr']
     df['csr_total'] = df['init'] + df['scat_csr'] + df['csr']
     df['dense_total'] = df['scat_dense'] + df['dense']
-    df['speedup'] = df['dense'] / df['csr'].replace(0, 1) # Pure computation speedup
+    df['speedup'] = df['dense'] / df['csr_combined'].replace(0, 1) # Pure computation speedup
     df['init_pct'] = (df['init'] / df['csr_total'].replace(0, 1)) * 100
     
     # Baseline Filter
@@ -136,11 +137,11 @@ def generate_visuals(data):
     # --- 5. Scattering Overhead vs Computation ---
     plt.figure(figsize=(10, 6))
     # Select a case where scattering is significant
-    df_over = df[(df['size'] == 5000) & (df['sparsity'] == 99) & (df['loops'] == 1)]
+    df_over = df[(df['size'] == 5000) & (df['sparsity'] == 99) & (df['loops'] == 20)]
     if not df_over.empty:
         plt.bar(df_over['processes'].astype(str), df_over['scat_csr'], label='Scatter Overhead', color='#9467bd')
         plt.bar(df_over['processes'].astype(str), df_over['csr'], bottom=df_over['scat_csr'], label='Actual Computation', color='#17becf')
-        plt.title('Communication Overhead (Scatter) vs Computation\n[Size 5000, 99% Sparsity, 1 Loop]', fontsize=13, fontweight='bold')
+        plt.title('Communication Overhead (Scatter) vs Computation\n[Size 5000, 99% Sparsity, 20 Loop]', fontsize=13, fontweight='bold')
         plt.legend()
         plt.savefig(f"{GRAPH_DIR}/5_scatter_overhead_breakdown.png", dpi=300)
     plt.close()
