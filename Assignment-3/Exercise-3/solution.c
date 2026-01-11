@@ -356,6 +356,7 @@ int main(int argc, char *argv[])
 
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0) gettimeofday(&start, NULL);
         
     int myRows = (numColumns / commSz) + (myRank < (numColumns % commSz) ? 1 : 0);
@@ -375,6 +376,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < myRecvCount; i++) {
         localRowIdx[i] -= offset;
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
@@ -383,19 +385,24 @@ int main(int argc, char *argv[])
         free(V);
         free(colIdx);
         free(rowIdx);
-        gettimeofday(&start, NULL);
+        
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(myRank == 0) gettimeofday(&start, NULL);
     MPI_Bcast(denseVector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatterv(denseArray, denseSendCounts, denseDispls, MPI_INT, localDenseMatrix, myRows * numColumns, MPI_INT, 0, MPI_COMM_WORLD);
 
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
         elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
         printf("Scattering the necessary data for dense Matrix took: %f seconds\n", elapsed);
         free(denseArray);
-        gettimeofday(&start, NULL);
-    }
+        
+    } 
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(myRank == 0) gettimeofday(&start, NULL);
     int *gatherCounts = malloc(commSz * sizeof(int));
     int *gatherDispls = malloc(commSz * sizeof(int));
 
@@ -410,7 +417,7 @@ int main(int argc, char *argv[])
         gatherDispls[i] = total;
         total += work;
     }
-
+   
     for (int i = 0; i < numLoops; i++)
     {
         int *localVec = matVecMultCSR(localV, localColIdx, localRowIdx, vector, myRows);
@@ -418,6 +425,7 @@ int main(int argc, char *argv[])
         MPI_Allgatherv(localVec, myRows, MPI_INT, vector, gatherCounts, gatherDispls, MPI_INT, MPI_COMM_WORLD);
         free(localVec);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
@@ -428,7 +436,7 @@ int main(int argc, char *argv[])
     free(localRowIdx);
     free(localV);
     free(localColIdx);
-
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
         gettimeofday(&start, NULL);
     for (int i = 0; i < numLoops; i++)

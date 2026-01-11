@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
         
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    
+
     if(myRank == 0) gettimeofday(&start, NULL);
     MPI_Bcast(denseVector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatterv(denseArray, denseSendCounts, denseDispls, MPI_INT, localDenseMatrix, myRows * numColumns, MPI_INT, 0, MPI_COMM_WORLD);
@@ -352,7 +352,7 @@ int main(int argc, char *argv[])
         // Use Allgather to avoid broadcasting vector again
         MPI_Allgatherv(localVec, myRows, MPI_INT, vector, gatherCounts, gatherDispls, MPI_INT, MPI_COMM_WORLD);
     }
-
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
     free(localRowIdx);
     free(localV);
     free(localColIdx);
-
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
         gettimeofday(&start, NULL);
     for (int i = 0; i < numLoops; i++)
@@ -373,6 +373,7 @@ int main(int argc, char *argv[])
     }
     free(localVec);
     free(localDenseMatrix);
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
