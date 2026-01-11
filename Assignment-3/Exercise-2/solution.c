@@ -34,7 +34,7 @@ void matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int 
 /// @param vector the vector being multiplied by denseMatrix
 /// @param numRows the number of rows/columns of the matrix
 /// @return The resulting vector after the multiplication
-void Mat_vect_mult(const int *restrict denseMatrix,const int *restrict vector,int *restrict retVec, int numRows, int myRows)
+void Mat_vect_mult(const int *restrict denseMatrix, const int *restrict vector, int *restrict retVec, int numRows, int myRows)
 {
     int i, j;
     for (i = 0; i < myRows; i++)
@@ -180,6 +180,8 @@ int main(int argc, char *argv[])
     int displs[commSz];
     int denseSendCounts[commSz];
     int denseDispls[commSz];
+    int dataSendCounts[commSz];
+    int dataDispls[commSz];
     // We make 2 vectors with the same contents, this is done so we can check the validity of the result against the dense matrix multiplication, which is considered correct
     vector = malloc(numColumns * sizeof(int));
 
@@ -229,10 +231,11 @@ int main(int argc, char *argv[])
         }
     }
     MPI_Bcast(&numNonZero, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    V = malloc(numNonZero * sizeof(int));      // Values of non zero values
-    colIdx = malloc(numNonZero * sizeof(int)); // Column index of non-zero value
+
     if (myRank == 0)
     {
+        V = malloc(numNonZero * sizeof(int));      // Values of non zero values
+        colIdx = malloc(numNonZero * sizeof(int)); // Column index of non-zero value
         // Convert Dense array to CSR sparse array format, count time taken
         gettimeofday(&start, NULL);
         rowIdx = malloc((numColumns + 1) * sizeof(int)); // Encodes the index in V and COL_INDEX where the given row starts
@@ -272,7 +275,12 @@ int main(int argc, char *argv[])
 
             denseDispls[i] = totalDspls * numColumns;
 
+            dataDispls[i] = rowIdx[totalDspls]; 
+                
+            dataSendCounts[i] = rowIdx[totalDspls + workForThisRank] - rowIdx[totalDspls];
+
             totalDspls += workForThisRank;
+
         }
     }
     if (myRank == 0)
@@ -281,15 +289,26 @@ int main(int argc, char *argv[])
     int myRecvCount = myRows + 1;
     int *localRowIdx = malloc(myRecvCount * sizeof(int));
     int *localDenseMatrix = malloc(myRows * numColumns * sizeof(int));
+    MPI_Bcast(dataSendCounts, commSz, MPI_INT, 0, MPI_COMM_WORLD);
+    int *localV = malloc(dataSendCounts[myRank] * sizeof(int));
+    int *localColIdx = malloc(dataSendCounts[myRank] * sizeof(int));
     MPI_Bcast(vector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(denseVector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(V, numNonZero, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(colIdx, numNonZero, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(V, dataSendCounts, dataDispls, MPI_INT, localV, dataSendCounts[myRank], MPI_INT, 0,MPI_COMM_WORLD);
+    MPI_Scatterv(colIdx, dataSendCounts, dataDispls, MPI_INT, localColIdx, dataSendCounts[myRank], MPI_INT, 0,MPI_COMM_WORLD);
     // We use scatterv so we can assign rowIdx with overlapping last element and to make sure work gets scattered correctly even with row sizes that are not divisible by commSz
     MPI_Scatterv(rowIdx, sendCounts, displs, MPI_INT, localRowIdx, myRecvCount, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatterv(denseArray, denseSendCounts, denseDispls, MPI_INT, localDenseMatrix, myRows * numColumns, MPI_INT, 0, MPI_COMM_WORLD);
+    
+    // Shift localRowIdx
+    int offset = localRowIdx[0];
+    for (int i = 0; i < myRecvCount; i++) {
+        localRowIdx[i] -= offset;
+    }
     if (myRank == 0)
     {
+        free(V);
+        free(colIdx);
         free(rowIdx);
         free(denseArray);
         gettimeofday(&end, NULL);
@@ -312,10 +331,10 @@ int main(int argc, char *argv[])
         gatherDispls[i] = total;
         total += work;
     }
-    int* localVec = malloc(myRows * sizeof(int));
+    int *localVec = malloc(myRows * sizeof(int));
     for (int i = 0; i < numLoops; i++)
     {
-        matVecMultCSR(V, colIdx, localRowIdx, vector, localVec, myRows);
+        matVecMultCSR(localV, localColIdx, localRowIdx, vector, localVec, myRows);
         // Use Allgather to avoid broadcasting vector again
         MPI_Allgatherv(localVec, myRows, MPI_INT, vector, gatherCounts, gatherDispls, MPI_INT, MPI_COMM_WORLD);
     }
@@ -328,14 +347,14 @@ int main(int argc, char *argv[])
     }
 
     free(localRowIdx);
-    free(V);
-    free(colIdx);
+    free(localV);
+    free(localColIdx);
 
     if (myRank == 0)
         gettimeofday(&start, NULL);
     for (int i = 0; i < numLoops; i++)
     {
-        Mat_vect_mult(localDenseMatrix, denseVector, localVec,numColumns, myRows);
+        Mat_vect_mult(localDenseMatrix, denseVector, localVec, numColumns, myRows);
         MPI_Allgatherv(localVec, myRows, MPI_INT, denseVector, gatherCounts, gatherDispls, MPI_INT, MPI_COMM_WORLD);
     }
     free(localVec);

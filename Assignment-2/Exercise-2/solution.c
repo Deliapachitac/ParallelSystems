@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include "../Shared/my_rand.h"
 
-long numThreads;     // Number of threads to be created, global so functions can use it freely
+long numThreads; // Number of threads to be created, global so functions can use it freely
 
 /// @brief Perform sparse Matrix-Vector multiplication with matrix represented in CSR format
 /// @param V Non-zero values of sparse matrix
@@ -19,18 +19,17 @@ long numThreads;     // Number of threads to be created, global so functions can
 /// @return Vector with result
 int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int *restrict rowIdx, const int *restrict vector, const int rowNum)
 {
-    int i,j;
+    int i, j;
     int *retVec = malloc(rowNum * sizeof(int));
     if (retVec == NULL)
     {
         fprintf(stderr, "Couldn't allocate memory for vector\n");
         return NULL;
     }
-    // Only execute with OpenMP if there is compiler support, otherwise fall back to serial execution
-    #ifdef _OPENMP
-    #  pragma omp parallel for num_threads(numThreads)  \
-      default(none) private(i, j)  shared(V,colIdx, rowIdx, retVec, vector, rowNum) 
-    #endif
+// Only execute with OpenMP if there is compiler support, otherwise fall back to serial execution
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(numThreads) default(none) private(i, j) shared(V, colIdx, rowIdx, retVec, vector, rowNum)
+#endif
     for (i = 0; i < rowNum; i++)
     {
         // Get row indices and loop over non-zero elements and place them in the correct index
@@ -50,19 +49,18 @@ int *matVecMultCSR(const int *restrict V, const int *restrict colIdx, const int 
 /// @param vector the vector being multiplied by denseMatrix
 /// @param numRows the number of rows/columns of the matrix
 /// @return The resulting vector after the multiplication
-int* Mat_vect_mult(int *denseMatrix, int *vector, const int numRows)
+int *Mat_vect_mult(int *denseMatrix, int *vector, const int numRows)
 {
     int i, j;
-    int* retVec = malloc(numRows * sizeof(int));
+    int *retVec = malloc(numRows * sizeof(int));
     if (retVec == NULL)
     {
         fprintf(stderr, "Couldn't allocate memory for vector\n");
         return NULL;
     }
-    #ifdef _OPENMP
-    #  pragma omp parallel for num_threads(numThreads)  \
-       default(none) private(i, j)  shared(denseMatrix, retVec, vector, numRows)
-    #endif
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(numThreads) default(none) private(i, j) shared(denseMatrix, retVec, vector, numRows)
+#endif
     for (i = 0; i < numRows; i++)
     {
         retVec[i] = 0;
@@ -199,22 +197,22 @@ int main(int argc, char *argv[])
     }
 
     int *vector = malloc(numColumns * sizeof(int));
-    
+
     if (vector == NULL)
     {
         fprintf(stderr, "Couldn't allocate memory for vector\n");
         return 1;
     }
     // We make 2 vectors with the same contents, this is done so we can check the validity of the result against the dense matrix multiplication, which is considered correct
-    int* denseVector = malloc(numColumns *sizeof(int));
+    int *denseVector = malloc(numColumns * sizeof(int));
     if (denseVector == NULL)
-        {
-            fprintf(stderr, "Couldn't allocate memory for vector\n");
-            return 1;
-        }
+    {
+        fprintf(stderr, "Couldn't allocate memory for vector\n");
+        return 1;
+    }
     unsigned seed = time(NULL);
     for (int i = 0; i < numColumns; i++)
-    {   
+    {
         unsigned randNum = my_rand(&seed);
         vector[i] = randNum;
         denseVector[i] = randNum;
@@ -232,7 +230,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-    
 
     // Convert Dense array to CSR sparse array format, count time taken
     gettimeofday(&start, NULL);
@@ -241,49 +238,55 @@ int main(int argc, char *argv[])
     int *rowIdx = malloc((numColumns + 1) * sizeof(int)); // Encodes the index in V and COL_INDEX where the given row starts
     numNonZero = 0;
     rowIdx[0] = 0;
-    #ifdef _OPENMP
-    int* tempV = malloc(numColumns * numColumns * sizeof(int));
-    int* tempColIdx = malloc(numColumns * numColumns * sizeof(int));
-    int* rowNNZ = malloc(numColumns * sizeof(int));
-    // Collect results row wise
-    #pragma omp parallel for num_threads(numThreads) 
-    for(int row = 0; row < numColumns; row++){
+#ifdef _OPENMP
+    int *tempV = malloc(numColumns * numColumns * sizeof(int));
+    int *tempColIdx = malloc(numColumns * numColumns * sizeof(int));
+    int *rowNNZ = malloc(numColumns * sizeof(int));
+// Collect results row wise
+#pragma omp parallel for num_threads(numThreads)
+    for (int row = 0; row < numColumns; row++)
+    {
         int nnz = 0;
-        for(int col = 0; col < numColumns ; col++){
+        for (int col = 0; col < numColumns; col++)
+        {
             int value = denseArray[row * numColumns + col];
-            if(value != 0){
-                tempV[row * numColumns+ nnz] = value;
-                tempColIdx[row * numColumns+ nnz]  = col;
+            if (value != 0)
+            {
+                tempV[row * numColumns + nnz] = value;
+                tempColIdx[row * numColumns + nnz] = col;
                 nnz++;
             }
             rowNNZ[row] = nnz;
         }
     }
     rowIdx[0] = 0;
-    for(int i = 0; i < numColumns; i++) {
+    for (int i = 0; i < numColumns; i++)
+    {
         rowIdx[i + 1] = rowIdx[i] + rowNNZ[i];
     }
     numNonZero = rowIdx[numColumns]; // Total count
-    // Flatten them can also be parallel
-    #pragma omp parallel for num_threads(numThreads) 
-    for(int i = 0; i < numColumns; i++) {
+// Flatten them can also be parallel
+#pragma omp parallel for num_threads(numThreads)
+    for (int i = 0; i < numColumns; i++)
+    {
         int startPos = rowIdx[i];
-        for(int j = 0; j < rowNNZ[i]; j++) {
-            V[startPos + j] = tempV[i*numColumns + j];
-            colIdx[startPos + j] = tempColIdx[i*numColumns + j];
+        for (int j = 0; j < rowNNZ[i]; j++)
+        {
+            V[startPos + j] = tempV[i * numColumns + j];
+            colIdx[startPos + j] = tempColIdx[i * numColumns + j];
         }
     }
     free(tempV);
     free(tempColIdx);
     free(rowNNZ);
-    #else
+#else
     for (int i = 0; i < numColumns; i++)
     {
         for (int j = 0; j < numColumns; j++)
         {
             int value = denseArray[i * numColumns + j];
             if (value != 0)
-            {   
+            {
                 V[numNonZero] = value;
                 colIdx[numNonZero] = j;
                 numNonZero++;
@@ -291,7 +294,7 @@ int main(int argc, char *argv[])
         }
         rowIdx[i + 1] = numNonZero;
     }
-    #endif
+#endif
     gettimeofday(&end, NULL);
     elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
     printf("Matrix-vector Initialization with CSR format took: %f seconds\n", elapsed);
@@ -299,7 +302,8 @@ int main(int argc, char *argv[])
     for (int i = 0; i < numLoops; i++)
     {
         int *newVec = matVecMultCSR(V, colIdx, rowIdx, vector, numColumns);
-        if(newVec == NULL){
+        if (newVec == NULL)
+        {
             return 1;
         }
         free(vector);
@@ -310,9 +314,11 @@ int main(int argc, char *argv[])
     printf("Matrix-vector multiplication with CSR format took: %f seconds\n", elapsed);
 
     gettimeofday(&start, NULL);
-    for(int i = 0; i < numLoops; i++){
+    for (int i = 0; i < numLoops; i++)
+    {
         int *newVec = Mat_vect_mult(denseArray, denseVector, numColumns);
-        if(newVec == NULL){
+        if (newVec == NULL)
+        {
             return 1;
         }
         free(denseVector);
@@ -322,8 +328,10 @@ int main(int argc, char *argv[])
     elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
     printf("Matrix-vector multiplication with dense matrix took: %f seconds\n", elapsed);
 
-    for(int i = 0; i < numColumns ; i++){
-        if(vector[i] != denseVector[i]){
+    for (int i = 0; i < numColumns; i++)
+    {
+        if (vector[i] != denseVector[i])
+        {
             fprintf(stderr, "Results are incorrect!\n");
             return 1;
         }
