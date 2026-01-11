@@ -283,8 +283,8 @@ int main(int argc, char *argv[])
 
         }
     }
-    if (myRank == 0)
-        gettimeofday(&start, NULL);
+    if (myRank == 0) gettimeofday(&start, NULL);
+        
     int myRows = (numColumns / commSz) + (myRank < (numColumns % commSz) ? 1 : 0);
     int myRecvCount = myRows + 1;
     int *localRowIdx = malloc(myRecvCount * sizeof(int));
@@ -293,13 +293,22 @@ int main(int argc, char *argv[])
     int *localV = malloc(dataSendCounts[myRank] * sizeof(int));
     int *localColIdx = malloc(dataSendCounts[myRank] * sizeof(int));
     MPI_Bcast(vector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(denseVector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatterv(V, dataSendCounts, dataDispls, MPI_INT, localV, dataSendCounts[myRank], MPI_INT, 0,MPI_COMM_WORLD);
     MPI_Scatterv(colIdx, dataSendCounts, dataDispls, MPI_INT, localColIdx, dataSendCounts[myRank], MPI_INT, 0,MPI_COMM_WORLD);
     // We use scatterv so we can assign rowIdx with overlapping last element and to make sure work gets scattered correctly even with row sizes that are not divisible by commSz
     MPI_Scatterv(rowIdx, sendCounts, displs, MPI_INT, localRowIdx, myRecvCount, MPI_INT, 0, MPI_COMM_WORLD);
+    if (myRank == 0)
+    {
+        gettimeofday(&end, NULL);
+        elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
+        printf("Scattering the necessary data for CSR took: %f seconds\n", elapsed);
+        free(V);
+        free(colIdx);
+        free(rowIdx);
+        gettimeofday(&start, NULL);
+    }
+    MPI_Bcast(denseVector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatterv(denseArray, denseSendCounts, denseDispls, MPI_INT, localDenseMatrix, myRows * numColumns, MPI_INT, 0, MPI_COMM_WORLD);
-    
     // Shift localRowIdx
     int offset = localRowIdx[0];
     for (int i = 0; i < myRecvCount; i++) {
@@ -307,13 +316,10 @@ int main(int argc, char *argv[])
     }
     if (myRank == 0)
     {
-        free(V);
-        free(colIdx);
-        free(rowIdx);
-        free(denseArray);
         gettimeofday(&end, NULL);
         elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
-        printf("Scattering the necessary data took: %f seconds\n", elapsed);
+        printf("Scattering the necessary data for dense Matrix took: %f seconds\n", elapsed);
+        free(denseArray);
     }
     if (myRank == 0)
         gettimeofday(&start, NULL);
