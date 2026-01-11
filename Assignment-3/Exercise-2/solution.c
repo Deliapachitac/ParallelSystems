@@ -283,6 +283,8 @@ int main(int argc, char *argv[])
 
         }
     }
+    // Use this to get accurate time measurements
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0) gettimeofday(&start, NULL);
         
     int myRows = (numColumns / commSz) + (myRank < (numColumns % commSz) ? 1 : 0);
@@ -302,6 +304,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < myRecvCount; i++) {
         localRowIdx[i] -= offset;
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
@@ -310,11 +313,15 @@ int main(int argc, char *argv[])
         free(V);
         free(colIdx);
         free(rowIdx);
-        gettimeofday(&start, NULL);
+        
     }
+    MPI_Barrier(MPI_COMM_WORLD);
+    
+    if(myRank == 0) gettimeofday(&start, NULL);
     MPI_Bcast(denseVector, numColumns, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatterv(denseArray, denseSendCounts, denseDispls, MPI_INT, localDenseMatrix, myRows * numColumns, MPI_INT, 0, MPI_COMM_WORLD);
 
+    MPI_Barrier(MPI_COMM_WORLD);
     if (myRank == 0)
     {
         gettimeofday(&end, NULL);
