@@ -59,8 +59,8 @@ def run_benchmarks():
     #     target_configs.add((10000, 90, th, 10))
 
     # Targets for Plot 5 & 8 (Size 10000, 90% Sparsity, 20 Loops, All Processes)
-    for th in PROCESSES:
-        target_configs.add((10000, 90, th, 20))
+    # for th in PROCESSES:
+    #     target_configs.add((10000, 90, th, 20))
 
     # # Targets for Plot 7 (Size 10000, All Sparsities, All Loops, 4 Processes)
     # # Note: Using 4 processes as the representative for the heatmap
@@ -172,32 +172,32 @@ def generate_visuals(data):
     #     plt.savefig(f"{GRAPH_DIR}/4_distribution_time.png", dpi=300)
     # plt.close()
 
-    # --- 5. Scattering Overhead vs Computation ---
-    plt.figure(figsize=(10, 6))
-    df_over = df[(df['size'] == 10000) & (df['sparsity'] == 90) & (df['loops'] == 20)].copy()
+    # # --- 5. Scattering Overhead vs Computation ---
+    # plt.figure(figsize=(10, 6))
+    # df_over = df[(df['size'] == 10000) & (df['sparsity'] == 90) & (df['loops'] == 20)].copy()
     
-    if not df_over.empty:
-        # SORTING: Ensure processes are ordered numerically
-        df_over = df_over.sort_values('processes')
+    # if not df_over.empty:
+    #     # SORTING: Ensure processes are ordered numerically
+    #     df_over = df_over.sort_values('processes')
         
-        plt.bar(df_over['processes'].astype(str), df_over['scat_csr'], label='Scatter Overhead', color='#9467bd')
-        plt.bar(df_over['processes'].astype(str), df_over['csr'], bottom=df_over['scat_csr'], label='Actual Computation', color='#17becf')
+    #     plt.bar(df_over['processes'].astype(str), df_over['scat_csr'], label='Scatter Overhead', color='#9467bd')
+    #     plt.bar(df_over['processes'].astype(str), df_over['csr'], bottom=df_over['scat_csr'], label='Actual Computation', color='#17becf')
         
-        plt.title('Communication Overhead (Scatter) vs Computation\n[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
-        plt.xlabel('MPI Processes')
-        plt.ylabel('Seconds')
-        plt.legend()
-        plt.savefig(f"{GRAPH_DIR}/5_scatter_overhead_breakdown.png", dpi=300)
-    plt.close()
+    #     plt.title('Communication Overhead (Scatter) vs Computation\n[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
+    #     plt.xlabel('MPI Processes')
+    #     plt.ylabel('Seconds')
+    #     plt.legend()
+    #     plt.savefig(f"{GRAPH_DIR}/5_scatter_overhead_breakdown.png", dpi=300)
+    # plt.close()
 
-    # --- 6. Speedup Ratio ---
-    plt.figure(figsize=(10, 6))
-    df_5000_4th['Loop_Label'] = df_5000_4th['loops'].apply(lambda x: f"{x} Iterations")
-    sns.lineplot(data=df_5000_4th, x='sparsity', y='speedup', hue='Loop_Label', marker='D', linewidth=3)
-    plt.axhline(1, ls='--', color='black', alpha=0.7)
-    plt.title('CSR Speedup Factor over Dense\n[Size 5000, 4 processes]', fontsize=14, fontweight='bold')
-    plt.savefig(f"{GRAPH_DIR}/speedup_ratio.png", dpi=300)
-    plt.close()
+    # # --- 6. Speedup Ratio ---
+    # plt.figure(figsize=(10, 6))
+    # df_5000_4th['Loop_Label'] = df_5000_4th['loops'].apply(lambda x: f"{x} Iterations")
+    # sns.lineplot(data=df_5000_4th, x='sparsity', y='speedup', hue='Loop_Label', marker='D', linewidth=3)
+    # plt.axhline(1, ls='--', color='black', alpha=0.7)
+    # plt.title('CSR Speedup Factor over Dense\n[Size 5000, 4 processes]', fontsize=14, fontweight='bold')
+    # plt.savefig(f"{GRAPH_DIR}/speedup_ratio.png", dpi=300)
+    # plt.close()
 
     # # --- 7. Efficiency Heatmap ---
     # plt.figure(figsize=(12, 7))
@@ -208,31 +208,31 @@ def generate_visuals(data):
     #     plt.title('CSR Speedup Landscape (Size 10000)\n[Green = CSR Wins | Red = Dense Wins]', fontsize=15, fontweight='bold')
     #     plt.savefig(f"{GRAPH_DIR}/best_efficiency_landscape.png", dpi=300)
     # plt.close()
-    # --- 8. CSR Combined Time vs Processes ---
-    plt.figure(figsize=(10, 6))
-    df_proc_study = df[(df['size'] == 10000) & 
-                       (df['sparsity'] == 90) & 
-                       (df['loops'] == 20)].copy()
+    # # --- 8. CSR Combined Time vs Processes ---
+    # plt.figure(figsize=(10, 6))
+    # df_proc_study = df[(df['size'] == 10000) & 
+    #                    (df['sparsity'] == 90) & 
+    #                    (df['loops'] == 20)].copy()
     
-    if not df_proc_study.empty:
-        # Sort by processes to ensure a clean line plot
-        df_proc_study = df_proc_study.sort_values('processes')
+    # if not df_proc_study.empty:
+    #     # Sort by processes to ensure a clean line plot
+    #     df_proc_study = df_proc_study.sort_values('processes')
         
-        sns.lineplot(data=df_proc_study, x='processes', y='csr_combined', 
-                     marker='o', markersize=10, color='#2c3e50', linewidth=3)
+    #     sns.lineplot(data=df_proc_study, x='processes', y='csr_combined', 
+    #                  marker='o', markersize=10, color='#2c3e50', linewidth=3)
         
-        plt.title('Total CSR Time (Init + Multiplication) vs. Number of Processes\n'
-                  '[Size: 10000, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
-        plt.xlabel('Number of MPI Processes', fontsize=12)
-        plt.ylabel('Time (seconds)', fontsize=12)
-        plt.xticks(PROCESSES) # Ensures all process counts are labeled
+    #     plt.title('Total CSR Time (Init + Multiplication) vs. Number of Processes\n'
+    #               '[Size: 10000, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
+    #     plt.xlabel('Number of MPI Processes', fontsize=12)
+    #     plt.ylabel('Time (seconds)', fontsize=12)
+    #     plt.xticks(PROCESSES) # Ensures all process counts are labeled
         
-        # Add labels to the points for clarity
-        for x, y in zip(df_proc_study['processes'], df_proc_study['csr_combined']):
-            plt.text(x, y, f'{y:.4f}s', color='black', va='bottom', ha='center', fontweight='semibold')
+    #     # Add labels to the points for clarity
+    #     for x, y in zip(df_proc_study['processes'], df_proc_study['csr_combined']):
+    #         plt.text(x, y, f'{y:.4f}s', color='black', va='bottom', ha='center', fontweight='semibold')
 
-        plt.savefig(f"{GRAPH_DIR}/8_csr_combined_vs_processes.png", dpi=300)
-    plt.close()
+    #     plt.savefig(f"{GRAPH_DIR}/8_csr_combined_vs_processes.png", dpi=300)
+    # plt.close()
     # # --- 9. CSR Combined vs Dense (Scale Study) ---
     # plt.figure(figsize=(10, 6))
     # df_scale = df[(df['sparsity'] == 90) & 
@@ -256,46 +256,46 @@ def generate_visuals(data):
         
     #     plt.savefig(f"{GRAPH_DIR}/9_csr_vs_dense_scaling.png", dpi=300)
     # plt.close()
-    # --- 10. Dense Total Time vs Processes ---
-    plt.figure(figsize=(10, 6))
-    df_dense_proc = df[(df['size'] == 10000) & 
-                       (df['sparsity'] == 90) & 
-                       (df['loops'] == 20)].copy()
+    # # --- 10. Dense Total Time vs Processes ---
+    # plt.figure(figsize=(10, 6))
+    # df_dense_proc = df[(df['size'] == 10000) & 
+    #                    (df['sparsity'] == 90) & 
+    #                    (df['loops'] == 20)].copy()
     
-    if not df_dense_proc.empty:
-        df_dense_proc = df_dense_proc.sort_values('processes')
+    # if not df_dense_proc.empty:
+    #     df_dense_proc = df_dense_proc.sort_values('processes')
         
-        sns.lineplot(data=df_dense_proc, x='processes', y='dense_total', 
-                     marker='s', markersize=10, color='#c0392b', linewidth=3)
+    #     sns.lineplot(data=df_dense_proc, x='processes', y='dense_total', 
+    #                  marker='s', markersize=10, color='#c0392b', linewidth=3)
         
-        plt.title('Total Dense Time (Scatter + Mult) vs. Number of Processes\n'
-                  '[Size: 10000, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
-        plt.xlabel('Number of MPI Processes', fontsize=12)
-        plt.ylabel('Time (seconds)', fontsize=12)
-        plt.xticks(PROCESSES)
+    #     plt.title('Total Dense Time (Scatter + Mult) vs. Number of Processes\n'
+    #               '[Size: 10000, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
+    #     plt.xlabel('Number of MPI Processes', fontsize=12)
+    #     plt.ylabel('Time (seconds)', fontsize=12)
+    #     plt.xticks(PROCESSES)
         
-        for x, y in zip(df_dense_proc['processes'], df_dense_proc['dense_total']):
-            plt.text(x, y, f'{y:.4f}s', color='black', va='bottom', ha='center', fontweight='semibold')
+    #     for x, y in zip(df_dense_proc['processes'], df_dense_proc['dense_total']):
+    #         plt.text(x, y, f'{y:.4f}s', color='black', va='bottom', ha='center', fontweight='semibold')
 
-        plt.savefig(f"{GRAPH_DIR}/10_dense_total_vs_processes.png", dpi=300)
-    plt.close()
+    #     plt.savefig(f"{GRAPH_DIR}/10_dense_total_vs_processes.png", dpi=300)
+    # plt.close()
 
-    # --- 11. Dense Scattering Overhead vs Computation ---
-    plt.figure(figsize=(10, 6))
-    if not df_dense_proc.empty:
-        # Reusing df_dense_proc as it has the same filters
-        plt.bar(df_dense_proc['processes'].astype(str), df_dense_proc['scat_dense'], 
-                label='Dense Scatter Overhead', color='#e67e22')
-        plt.bar(df_dense_proc['processes'].astype(str), df_dense_proc['dense'], 
-                bottom=df_dense_proc['scat_dense'], label='Dense Computation', color='#f1c40f')
+    # # --- 11. Dense Scattering Overhead vs Computation ---
+    # plt.figure(figsize=(10, 6))
+    # if not df_dense_proc.empty:
+    #     # Reusing df_dense_proc as it has the same filters
+    #     plt.bar(df_dense_proc['processes'].astype(str), df_dense_proc['scat_dense'], 
+    #             label='Dense Scatter Overhead', color='#e67e22')
+    #     plt.bar(df_dense_proc['processes'].astype(str), df_dense_proc['dense'], 
+    #             bottom=df_dense_proc['scat_dense'], label='Dense Computation', color='#f1c40f')
         
-        plt.title('Dense Communication Overhead vs Computation\n'
-                  '[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
-        plt.xlabel('MPI Processes')
-        plt.ylabel('Seconds')
-        plt.legend()
-        plt.savefig(f"{GRAPH_DIR}/11_dense_scatter_breakdown.png", dpi=300)
-    plt.close()
+    #     plt.title('Dense Communication Overhead vs Computation\n'
+    #               '[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
+    #     plt.xlabel('MPI Processes')
+    #     plt.ylabel('Seconds')
+    #     plt.legend()
+    #     plt.savefig(f"{GRAPH_DIR}/11_dense_scatter_breakdown.png", dpi=300)
+    # plt.close()
 
 if __name__ == "__main__":
     run_benchmarks()
