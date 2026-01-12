@@ -54,23 +54,23 @@ def run_benchmarks():
         for sp in SPARSITIES:
             target_configs.add((sz, sp, 4, 10))
 
-    # Targets for Plot 4 (Size 10000, 90% Sparsity, 10 Loops, All Processes)
-    for th in PROCESSES:
-        target_configs.add((10000, 90, th, 10))
+    # # Targets for Plot 4 (Size 10000, 90% Sparsity, 10 Loops, All Processes)
+    # for th in PROCESSES:
+    #     target_configs.add((10000, 90, th, 10))
 
     # Targets for Plot 5 & 8 (Size 10000, 90% Sparsity, 20 Loops, All Processes)
     for th in PROCESSES:
         target_configs.add((10000, 90, th, 20))
 
-    # Targets for Plot 7 (Size 10000, All Sparsities, All Loops, 4 Processes)
-    # Note: Using 4 processes as the representative for the heatmap
-    for sp in SPARSITIES:
-        for lp in LOOPS:
-            target_configs.add((10000, sp, 4, lp))
+    # # Targets for Plot 7 (Size 10000, All Sparsities, All Loops, 4 Processes)
+    # # Note: Using 4 processes as the representative for the heatmap
+    # for sp in SPARSITIES:
+    #     for lp in LOOPS:
+    #         target_configs.add((10000, sp, 4, lp))
 
-    # Targets for Plot 9 (All Sizes, 90% Sparsity, 20 Loops, 16 Processes)
-    for sz in SIZES:
-        target_configs.add((sz, 90, 16, 20))
+    # # Targets for Plot 9 (All Sizes, 90% Sparsity, 20 Loops, 16 Processes)
+    # for sz in SIZES:
+    #     target_configs.add((sz, 90, 16, 20))
 
     total_tasks = len(target_configs)
     print(f"Starting benchmark: {total_tasks} targeted configurations.")
@@ -154,24 +154,23 @@ def generate_visuals(data):
             plt.savefig(f"{GRAPH_DIR}/{config['label']}.png", dpi=300)
         plt.close()
 
-    # --- 4.Data Distribution Comparison (Scattering Time) ---
-    # --- 4. Data Distribution Comparison (Scattering Time) ---
-    plt.figure(figsize=(10, 6))
-    df_dist = df[(df['size'] == 10000) & (df['loops'] == 10) & (df['sparsity'] == 90)].copy()
+    # # --- 4.Data Distribution Comparison (Scattering Time) ---
+    # plt.figure(figsize=(10, 6))
+    # df_dist = df[(df['size'] == 10000) & (df['loops'] == 10) & (df['sparsity'] == 90)].copy()
     
-    if not df_dist.empty:
-        # SORTING: Ensure processes are ordered numerically
-        df_dist = df_dist.sort_values('processes')
+    # if not df_dist.empty:
+    #     # SORTING: Ensure processes are ordered numerically
+    #     df_dist = df_dist.sort_values('processes')
         
-        plt.plot(df_dist['processes'].astype(str), df_dist['scat_csr'], marker='o', label='CSR Scatter Data', color='#2ca02c')
-        plt.plot(df_dist['processes'].astype(str), df_dist['scat_dense'], marker='s', label='Dense Scatter Data', color='#d62728')
+    #     plt.plot(df_dist['processes'].astype(str), df_dist['scat_csr'], marker='o', label='CSR Scatter Data', color='#2ca02c')
+    #     plt.plot(df_dist['processes'].astype(str), df_dist['scat_dense'], marker='s', label='Dense Scatter Data', color='#d62728')
         
-        plt.title('MPI Distribution Time: CSR vs Dense\n[Matrix Size: 10000, 90% Sparsity]', fontsize=14, fontweight='bold')
-        plt.xlabel('MPI Processes')
-        plt.ylabel('Seconds')
-        plt.legend()
-        plt.savefig(f"{GRAPH_DIR}/4_distribution_time.png", dpi=300)
-    plt.close()
+    #     plt.title('MPI Distribution Time: CSR vs Dense\n[Matrix Size: 10000, 90% Sparsity]', fontsize=14, fontweight='bold')
+    #     plt.xlabel('MPI Processes')
+    #     plt.ylabel('Seconds')
+    #     plt.legend()
+    #     plt.savefig(f"{GRAPH_DIR}/4_distribution_time.png", dpi=300)
+    # plt.close()
 
     # --- 5. Scattering Overhead vs Computation ---
     plt.figure(figsize=(10, 6))
@@ -200,15 +199,15 @@ def generate_visuals(data):
     plt.savefig(f"{GRAPH_DIR}/speedup_ratio.png", dpi=300)
     plt.close()
 
-    # --- 7. Efficiency Heatmap ---
-    plt.figure(figsize=(12, 7))
-    df_large = df[df['size'] == 10000]
-    if not df_large.empty:
-        pivot_data = df_large.pivot_table(index='loops', columns='sparsity', values='speedup', aggfunc='mean')
-        sns.heatmap(pivot_data, annot=True, cmap="RdYlGn", center=1.0)
-        plt.title('CSR Speedup Landscape (Size 10000)\n[Green = CSR Wins | Red = Dense Wins]', fontsize=15, fontweight='bold')
-        plt.savefig(f"{GRAPH_DIR}/best_efficiency_landscape.png", dpi=300)
-    plt.close()
+    # # --- 7. Efficiency Heatmap ---
+    # plt.figure(figsize=(12, 7))
+    # df_large = df[df['size'] == 10000]
+    # if not df_large.empty:
+    #     pivot_data = df_large.pivot_table(index='loops', columns='sparsity', values='speedup', aggfunc='mean')
+    #     sns.heatmap(pivot_data, annot=True, cmap="RdYlGn", center=1.0)
+    #     plt.title('CSR Speedup Landscape (Size 10000)\n[Green = CSR Wins | Red = Dense Wins]', fontsize=15, fontweight='bold')
+    #     plt.savefig(f"{GRAPH_DIR}/best_efficiency_landscape.png", dpi=300)
+    # plt.close()
     # --- 8. CSR Combined Time vs Processes ---
     plt.figure(figsize=(10, 6))
     df_proc_study = df[(df['size'] == 10000) & 
@@ -234,29 +233,29 @@ def generate_visuals(data):
 
         plt.savefig(f"{GRAPH_DIR}/8_csr_combined_vs_processes.png", dpi=300)
     plt.close()
-    # --- 9. CSR Combined vs Dense (Scale Study) ---
-    plt.figure(figsize=(10, 6))
-    df_scale = df[(df['sparsity'] == 90) & 
-                  (df['loops'] == 20) & 
-                  (df['processes'] == 16)].copy()
+    # # --- 9. CSR Combined vs Dense (Scale Study) ---
+    # plt.figure(figsize=(10, 6))
+    # df_scale = df[(df['sparsity'] == 90) & 
+    #               (df['loops'] == 20) & 
+    #               (df['processes'] == 16)].copy()
     
-    if not df_scale.empty:
-        df_scale = df_scale.sort_values('size')
+    # if not df_scale.empty:
+    #     df_scale = df_scale.sort_values('size')
         
-        plt.plot(df_scale['size'], df_scale['csr_combined'], 
-                 marker='o', label='CSR (Init + Mult)', linewidth=2.5, color='#1f77b4')
-        plt.plot(df_scale['size'], df_scale['dense_total'], 
-                 marker='s', label='Dense (Total)', linewidth=2.5, color='#d62728')
+    #     plt.plot(df_scale['size'], df_scale['csr_combined'], 
+    #              marker='o', label='CSR (Init + Mult)', linewidth=2.5, color='#1f77b4')
+    #     plt.plot(df_scale['size'], df_scale['dense_total'], 
+    #              marker='s', label='Dense (Total)', linewidth=2.5, color='#d62728')
         
-        plt.title('CSR vs Dense Performance Scaling\n'
-                  '[16 Processes, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
-        plt.xlabel('Matrix Size ($N \\times N$)', fontsize=12)
-        plt.ylabel('Time (seconds)', fontsize=12)
-        plt.legend()
-        plt.yscale('log') # Useful if time varies significantly between 1k and 10k
+    #     plt.title('CSR vs Dense Performance Scaling\n'
+    #               '[16 Processes, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
+    #     plt.xlabel('Matrix Size ($N \\times N$)', fontsize=12)
+    #     plt.ylabel('Time (seconds)', fontsize=12)
+    #     plt.legend()
+    #     plt.yscale('log') # Useful if time varies significantly between 1k and 10k
         
-        plt.savefig(f"{GRAPH_DIR}/9_csr_vs_dense_scaling.png", dpi=300)
-    plt.close()
+    #     plt.savefig(f"{GRAPH_DIR}/9_csr_vs_dense_scaling.png", dpi=300)
+    # plt.close()
 
 if __name__ == "__main__":
     run_benchmarks()
