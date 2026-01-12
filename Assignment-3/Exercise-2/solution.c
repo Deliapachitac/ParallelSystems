@@ -352,7 +352,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < numLoops; i++)
     {
         matVecMultCSR(localV, localColIdx, localRowIdx, vector, localVec, myRows);
-        // Use Allgather to avoid broadcasting vector again
+        // Use Allgather to avoid broadcasting vector again, we don't need to zero the localVec since we only write to it
         MPI_Allgatherv(localVec, myRows, MPI_INT, vector, gatherCounts, gatherDispls, MPI_INT, MPI_COMM_WORLD);
     }
     MPI_Barrier(MPI_COMM_WORLD);

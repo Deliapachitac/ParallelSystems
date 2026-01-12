@@ -130,43 +130,63 @@ def generate_visuals(data):
         plt.savefig(f"{GRAPH_DIR}/{name}_vs_sparsity.png", dpi=300)
         plt.close()
 
-    # --- 3. CSR Initialization Overhead ---
     overhead_configs = [
         {"size": 5000, "loops": 10, "label": "3a_overhead_5k_10lp"},
         {"size": 10000, "loops": 10, "label": "3c_overhead_10k_10lp"}
     ]
     for config in overhead_configs:
         plt.figure(figsize=(10, 6))
-        sub = df[(df['size'] == config['size']) & (df['loops'] == config['loops']) & (df['processes'] == 4)].reset_index(drop=True)
+        sub = df[(df['size'] == config['size']) & 
+                 (df['loops'] == config['loops']) & 
+                 (df['processes'] == 4)].copy()
+        
         if not sub.empty:
+            # SORTING: Ensure sparsity is ordered numerically
+            sub = sub.sort_values('sparsity')
+            
             plt.bar(sub['sparsity'].astype(str), sub['init'], color='#1f77b4', label='CSR Initialization')
             plt.bar(sub['sparsity'].astype(str), sub['csr'], bottom=sub['init'], color='#ff7f0e', label='CSR Multiplication')
+            
             plt.title(f"Init Overhead: {config['size']}x{config['size']}\n[{config['loops']} Loops, 4 processes]", fontsize=13, fontweight='bold')
             plt.ylabel('Time (s)')
+            plt.xlabel('Sparsity (%)')
             plt.legend()
             plt.savefig(f"{GRAPH_DIR}/{config['label']}.png", dpi=300)
         plt.close()
 
     # --- 4.Data Distribution Comparison (Scattering Time) ---
+    # --- 4. Data Distribution Comparison (Scattering Time) ---
     plt.figure(figsize=(10, 6))
-    df_dist = df[(df['size'] == 10000) & (df['loops'] == 10) & (df['sparsity'] == 90)]
-    plt.plot(df_dist['processes'].astype(str), df_dist['scat_csr'], marker='o', label='CSR Scatter Data', color='#2ca02c')
-    plt.plot(df_dist['processes'].astype(str), df_dist['scat_dense'], marker='s', label='Dense Scatter Data', color='#d62728')
-    plt.title('MPI Distribution Time: CSR vs Dense\n[Matrix Size: 10000, 90% Sparsity]', fontsize=14, fontweight='bold')
-    plt.xlabel('MPI Processes')
-    plt.ylabel('Seconds')
-    plt.legend()
-    plt.savefig(f"{GRAPH_DIR}/4_distribution_time.png", dpi=300)
+    df_dist = df[(df['size'] == 10000) & (df['loops'] == 10) & (df['sparsity'] == 90)].copy()
+    
+    if not df_dist.empty:
+        # SORTING: Ensure processes are ordered numerically
+        df_dist = df_dist.sort_values('processes')
+        
+        plt.plot(df_dist['processes'].astype(str), df_dist['scat_csr'], marker='o', label='CSR Scatter Data', color='#2ca02c')
+        plt.plot(df_dist['processes'].astype(str), df_dist['scat_dense'], marker='s', label='Dense Scatter Data', color='#d62728')
+        
+        plt.title('MPI Distribution Time: CSR vs Dense\n[Matrix Size: 10000, 90% Sparsity]', fontsize=14, fontweight='bold')
+        plt.xlabel('MPI Processes')
+        plt.ylabel('Seconds')
+        plt.legend()
+        plt.savefig(f"{GRAPH_DIR}/4_distribution_time.png", dpi=300)
     plt.close()
 
     # --- 5. Scattering Overhead vs Computation ---
     plt.figure(figsize=(10, 6))
-    # Select a case where scattering is significant
-    df_over = df[(df['size'] == 10000) & (df['sparsity'] == 90) & (df['loops'] == 20)]
+    df_over = df[(df['size'] == 10000) & (df['sparsity'] == 90) & (df['loops'] == 20)].copy()
+    
     if not df_over.empty:
+        # SORTING: Ensure processes are ordered numerically
+        df_over = df_over.sort_values('processes')
+        
         plt.bar(df_over['processes'].astype(str), df_over['scat_csr'], label='Scatter Overhead', color='#9467bd')
         plt.bar(df_over['processes'].astype(str), df_over['csr'], bottom=df_over['scat_csr'], label='Actual Computation', color='#17becf')
-        plt.title('Communication Overhead (Scatter) vs Computation\n[Size 10000, 90% Sparsity, 20 Loop]', fontsize=13, fontweight='bold')
+        
+        plt.title('Communication Overhead (Scatter) vs Computation\n[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
+        plt.xlabel('MPI Processes')
+        plt.ylabel('Seconds')
         plt.legend()
         plt.savefig(f"{GRAPH_DIR}/5_scatter_overhead_breakdown.png", dpi=300)
     plt.close()
