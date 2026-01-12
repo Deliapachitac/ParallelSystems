@@ -256,6 +256,46 @@ def generate_visuals(data):
         
     #     plt.savefig(f"{GRAPH_DIR}/9_csr_vs_dense_scaling.png", dpi=300)
     # plt.close()
+    # --- 10. Dense Total Time vs Processes ---
+    plt.figure(figsize=(10, 6))
+    df_dense_proc = df[(df['size'] == 10000) & 
+                       (df['sparsity'] == 90) & 
+                       (df['loops'] == 20)].copy()
+    
+    if not df_dense_proc.empty:
+        df_dense_proc = df_dense_proc.sort_values('processes')
+        
+        sns.lineplot(data=df_dense_proc, x='processes', y='dense_total', 
+                     marker='s', markersize=10, color='#c0392b', linewidth=3)
+        
+        plt.title('Total Dense Time (Scatter + Mult) vs. Number of Processes\n'
+                  '[Size: 10000, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
+        plt.xlabel('Number of MPI Processes', fontsize=12)
+        plt.ylabel('Time (seconds)', fontsize=12)
+        plt.xticks(PROCESSES)
+        
+        for x, y in zip(df_dense_proc['processes'], df_dense_proc['dense_total']):
+            plt.text(x, y, f'{y:.4f}s', color='black', va='bottom', ha='center', fontweight='semibold')
+
+        plt.savefig(f"{GRAPH_DIR}/10_dense_total_vs_processes.png", dpi=300)
+    plt.close()
+
+    # --- 11. Dense Scattering Overhead vs Computation ---
+    plt.figure(figsize=(10, 6))
+    if not df_dense_proc.empty:
+        # Reusing df_dense_proc as it has the same filters
+        plt.bar(df_dense_proc['processes'].astype(str), df_dense_proc['scat_dense'], 
+                label='Dense Scatter Overhead', color='#e67e22')
+        plt.bar(df_dense_proc['processes'].astype(str), df_dense_proc['dense'], 
+                bottom=df_dense_proc['scat_dense'], label='Dense Computation', color='#f1c40f')
+        
+        plt.title('Dense Communication Overhead vs Computation\n'
+                  '[Size 10000, 90% Sparsity, 20 Loops]', fontsize=13, fontweight='bold')
+        plt.xlabel('MPI Processes')
+        plt.ylabel('Seconds')
+        plt.legend()
+        plt.savefig(f"{GRAPH_DIR}/11_dense_scatter_breakdown.png", dpi=300)
+    plt.close()
 
 if __name__ == "__main__":
     run_benchmarks()
