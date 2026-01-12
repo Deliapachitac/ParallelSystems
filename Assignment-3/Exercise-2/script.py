@@ -7,7 +7,7 @@ import pandas as pd
 import seaborn as sns
 
 # Configuration
-RUNNER = "mpiexec -n "
+RUNNER = "mpiexec --hostfile hostfile -n "
 EXECUTABLE = "./build/Exercise-2/solution"
 EXECUTABLE_SERIAL = "./build/Exercise-2/solution_serial"
 GRAPH_DIR = "graphs"
@@ -15,8 +15,8 @@ ITERATIONS = 4
 
 # Test Case Parameters
 SIZES = [1000, 5000, 10000]
-SPARSITIES = [0, 50, 75, 90, 99]
-PROCESSES = [1, 2, 4, 8]
+SPARSITIES = [0, 25 ,50, 65,75, 90, 99]
+PROCESSES = [1, 4 ,8, 16 ,32, 64 , 116]
 LOOPS = [1, 10, 20]
 
 def parse_output(output_str):
@@ -37,43 +37,68 @@ def parse_output(output_str):
 def run_benchmarks():
     if not os.path.exists(GRAPH_DIR):
         os.makedirs(GRAPH_DIR)
+    
     all_data = []
 
-    total_configs = len(SIZES) * len(SPARSITIES) * len(PROCESSES) * len(LOOPS)
-    current_config = 0
+    # --- DEFINE TARGETED CONFIGURATIONS ---
+    # We only run what the generate_visuals function actually filters for.
+    target_configs = set()
 
-    print(f"Starting benchmark: {total_configs} total configurations...")
+    # Targets for Plot 1, 2, and 6 (Size 5000, 4 Processes, All Sparsities/Loops)
+    for sp in SPARSITIES:
+        for lp in LOOPS:
+            target_configs.add((5000, sp, 4, lp))
 
-    for sz in SIZES:
+    # Targets for Plot 3 (Size 5000 & 10000, 4 Processes, 10 Loops, All Sparsities)
+    for sz in [5000, 10000]:
         for sp in SPARSITIES:
-            for th in PROCESSES:
-                for lp in LOOPS:
-                    current_config += 1
-                    samples = {"init": [], "scat_csr": [], "scat_dense": [], "csr": [], "dense": []}
-                    
-                    print(f"[{current_config}/{total_configs}] Size:{sz} Sp:{sp}% Thr:{th} Loop:{lp}", end="\r")
+            target_configs.add((sz, sp, 4, 10))
 
-                    for _ in range(ITERATIONS):
-                        try:
-                            # --- 1 PROCESS SPECIAL CASE (SERIAL) ---
-                            if th == 1:
-                                command = [EXECUTABLE_SERIAL.strip(), str(sz), str(sp), str(lp)]
-                            else:
-                                # Normal MPI command
-                                command = RUNNER.split() + [str(th), EXECUTABLE.strip(), str(sz), str(sp), str(lp)]
+    # Targets for Plot 4 (Size 10000, 90% Sparsity, 10 Loops, All Processes)
+    for th in PROCESSES:
+        target_configs.add((10000, 90, th, 10))
 
-                            result = subprocess.run(command, capture_output=True, text=True, check=True)
-                            metrics = parse_output(result.stdout)
-                            for k in samples: samples[k].append(metrics[k])
-                        except Exception as e:
-                            print(f"\nError at Size {sz}, Sp {sp}, Thr {th}: {e}")
-                            continue
-                    
-                    avg_metrics = {k: statistics.mean(v) if v else 0 for k, v in samples.items()}
-                    all_data.append({
-                        "size": sz, "sparsity": sp, "processes": th, "loops": lp,
-                        **avg_metrics
-                    })
+    # Targets for Plot 5 & 8 (Size 10000, 90% Sparsity, 20 Loops, All Processes)
+    for th in PROCESSES:
+        target_configs.add((10000, 90, th, 20))
+
+    # Targets for Plot 7 (Size 10000, All Sparsities, All Loops, 4 Processes)
+    # Note: Using 4 processes as the representative for the heatmap
+    for sp in SPARSITIES:
+        for lp in LOOPS:
+            target_configs.add((10000, sp, 4, lp))
+
+    # Targets for Plot 9 (All Sizes, 90% Sparsity, 20 Loops, 16 Processes)
+    for sz in SIZES:
+        target_configs.add((sz, 90, 16, 20))
+
+    total_tasks = len(target_configs)
+    print(f"Starting benchmark: {total_tasks} targeted configurations.")
+
+    for i, (sz, sp, th, lp) in enumerate(target_configs, 1):
+        samples = {"init": [], "scat_csr": [], "scat_dense": [], "csr": [], "dense": []}
+        print(f"[{i}/{total_tasks}] Size:{sz} Sp:{sp}% Thr:{th} Loop:{lp}      ", end="\r")
+
+        for _ in range(ITERATIONS):
+            try:
+                if th == 1:
+                    command = [EXECUTABLE_SERIAL.strip(), str(sz), str(sp), str(lp)]
+                else:
+                    command = RUNNER.split() + [str(th), EXECUTABLE.strip(), str(sz), str(sp), str(lp)]
+
+                result = subprocess.run(command, capture_output=True, text=True, check=True)
+                metrics = parse_output(result.stdout)
+                for k in samples: 
+                    samples[k].append(metrics[k])
+            except Exception as e:
+                print(f"\nError at Size {sz}, Sp {sp}, Thr {th}: {e}")
+                continue
+        
+        avg_metrics = {k: statistics.mean(v) if v else 0 for k, v in samples.items()}
+        all_data.append({
+            "size": sz, "sparsity": sp, "processes": th, "loops": lp,
+            **avg_metrics
+        })
 
     print("\nBenchmarking complete. Generating graphs...")
     generate_visuals(all_data)
@@ -137,11 +162,11 @@ def generate_visuals(data):
     # --- 5. Scattering Overhead vs Computation ---
     plt.figure(figsize=(10, 6))
     # Select a case where scattering is significant
-    df_over = df[(df['size'] == 5000) & (df['sparsity'] == 99) & (df['loops'] == 20)]
+    df_over = df[(df['size'] == 10000) & (df['sparsity'] == 90) & (df['loops'] == 20)]
     if not df_over.empty:
         plt.bar(df_over['processes'].astype(str), df_over['scat_csr'], label='Scatter Overhead', color='#9467bd')
         plt.bar(df_over['processes'].astype(str), df_over['csr'], bottom=df_over['scat_csr'], label='Actual Computation', color='#17becf')
-        plt.title('Communication Overhead (Scatter) vs Computation\n[Size 5000, 99% Sparsity, 20 Loop]', fontsize=13, fontweight='bold')
+        plt.title('Communication Overhead (Scatter) vs Computation\n[Size 10000, 90% Sparsity, 20 Loop]', fontsize=13, fontweight='bold')
         plt.legend()
         plt.savefig(f"{GRAPH_DIR}/5_scatter_overhead_breakdown.png", dpi=300)
     plt.close()
@@ -163,6 +188,54 @@ def generate_visuals(data):
         sns.heatmap(pivot_data, annot=True, cmap="RdYlGn", center=1.0)
         plt.title('CSR Speedup Landscape (Size 10000)\n[Green = CSR Wins | Red = Dense Wins]', fontsize=15, fontweight='bold')
         plt.savefig(f"{GRAPH_DIR}/best_efficiency_landscape.png", dpi=300)
+    plt.close()
+    # --- 8. CSR Combined Time vs Processes ---
+    plt.figure(figsize=(10, 6))
+    df_proc_study = df[(df['size'] == 10000) & 
+                       (df['sparsity'] == 90) & 
+                       (df['loops'] == 20)].copy()
+    
+    if not df_proc_study.empty:
+        # Sort by processes to ensure a clean line plot
+        df_proc_study = df_proc_study.sort_values('processes')
+        
+        sns.lineplot(data=df_proc_study, x='processes', y='csr_combined', 
+                     marker='o', markersize=10, color='#2c3e50', linewidth=3)
+        
+        plt.title('Total CSR Time (Init + Multiplication) vs. Number of Processes\n'
+                  '[Size: 10000, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
+        plt.xlabel('Number of MPI Processes', fontsize=12)
+        plt.ylabel('Time (seconds)', fontsize=12)
+        plt.xticks(PROCESSES) # Ensures all process counts are labeled
+        
+        # Add labels to the points for clarity
+        for x, y in zip(df_proc_study['processes'], df_proc_study['csr_combined']):
+            plt.text(x, y, f'{y:.4f}s', color='black', va='bottom', ha='center', fontweight='semibold')
+
+        plt.savefig(f"{GRAPH_DIR}/8_csr_combined_vs_processes.png", dpi=300)
+    plt.close()
+    # --- 9. CSR Combined vs Dense (Scale Study) ---
+    plt.figure(figsize=(10, 6))
+    df_scale = df[(df['sparsity'] == 90) & 
+                  (df['loops'] == 20) & 
+                  (df['processes'] == 16)].copy()
+    
+    if not df_scale.empty:
+        df_scale = df_scale.sort_values('size')
+        
+        plt.plot(df_scale['size'], df_scale['csr_combined'], 
+                 marker='o', label='CSR (Init + Mult)', linewidth=2.5, color='#1f77b4')
+        plt.plot(df_scale['size'], df_scale['dense_total'], 
+                 marker='s', label='Dense (Total)', linewidth=2.5, color='#d62728')
+        
+        plt.title('CSR vs Dense Performance Scaling\n'
+                  '[16 Processes, 90% Sparsity, 20 Loops]', fontsize=14, fontweight='bold')
+        plt.xlabel('Matrix Size ($N \\times N$)', fontsize=12)
+        plt.ylabel('Time (seconds)', fontsize=12)
+        plt.legend()
+        plt.yscale('log') # Useful if time varies significantly between 1k and 10k
+        
+        plt.savefig(f"{GRAPH_DIR}/9_csr_vs_dense_scaling.png", dpi=300)
     plt.close()
 
 if __name__ == "__main__":
