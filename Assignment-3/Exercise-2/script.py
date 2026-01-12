@@ -7,7 +7,7 @@ import pandas as pd
 import seaborn as sns
 
 # Configuration
-RUNNER = "mpiexec --hostfile hostfile -n "
+RUNNER = "mpiexec --host linux25 -n "
 EXECUTABLE = "./build/Exercise-2/solution"
 EXECUTABLE_SERIAL = "./build/Exercise-2/solution_serial"
 GRAPH_DIR = "graphs"
