@@ -16,7 +16,7 @@ ITERATIONS = 4
 # Test Case Parameters
 SIZES = [1000, 5000, 10000]
 SPARSITIES = [0, 25 ,50, 65,75, 90, 99]
-PROCESSES = [1, 4 ,8, 16 ,32, 64 , 116]
+PROCESSES = [1, 4 ,8, 16 ,32, 64]
 LOOPS = [1, 10, 20]
 
 def parse_output(output_str):
