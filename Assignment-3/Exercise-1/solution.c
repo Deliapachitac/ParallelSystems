@@ -1,129 +1,170 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
-#include <time.h>
 
 void generate_polynomials(int n, int* P);
 void multiply_serial(int n, const int* P1, const int* P2, int* result);
 
 int main(int argc, char* argv[]) {
-
+    
+    // Activate the  MPI environment  
     MPI_Init(&argc, &argv);
 
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    int my_rank, comm_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank); //number of current process
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);// total number  of  processes
 
-    if (argc != 2) {
-        if (rank == 0)
-            fprintf(stderr, "Usage: %s <degree_of_polynomials>\n", argv[0]);
+    // We check if the user provided the correct number of arguments and we save them in variables
+    if (argc !=2 ) {
+        if (my_rank == 0){
+            fprintf(stderr, "Wrong number of arguments. Usage: %s <degree_of_polynomials>\n", argv[0]);
+            
+        }
         MPI_Finalize();
-        return -1;
+        return  -1;
     }
+    
+             
+    //Convert degree argument to integer
+    int n = atoi(argv[1]);
+    
+    // Variables for measuring time
+    double start_total, end_total;
+    double send_start,send_end;
+    double comp_start,comp_end;
+    double recv_start, recv_end;
 
-    int n = atoi(argv[1]);  
+    start_total = MPI_Wtime();//start total time    
 
-    double t_total_start, t_total_end;
-    double t_send_start, t_send_end;
-    double t_compute_start, t_compute_end;
-    double t_recv_start, t_recv_end;
-
-    t_total_start = MPI_Wtime();
-
+    // The two polynomials will be stored in arrays
     int *P1 = NULL, *P2 = NULL;
 
-    if (rank == 0) {
+    // Local arrays for each process
+    int *temp_P1, *local_result;
+
+    // Master process generates the polynomials
+    if (my_rank == 0) {
         P1 = malloc((n+1) * sizeof(int));
-        P2 = malloc((n+1) * sizeof(int));
+        P2 =malloc((n+1 ) *sizeof(int)) ;
 
         generate_polynomials(n, P1);
         generate_polynomials(n, P2);
-    }
+    } else{
+    //All the processes need P2 so we allocate memory for it and we broadcast it
+        P2 = malloc((n+1)*sizeof(int));
+    }  
 
-    if (rank == 0) t_send_start = MPI_Wtime();
+    send_start = MPI_Wtime(); //start the sending time
+    
+    // Broadcast P2 to all processes
+    MPI_Bcast(P2, n+1, MPI_INT,0, MPI_COMM_WORLD);
 
-    if (rank != 0) P2 = malloc((n+1) * sizeof(int));
-    MPI_Bcast(P2, n+1, MPI_INT, 0, MPI_COMM_WORLD);
+    //Now we need to distribute the P1 among all processes(scatterv)
+    // beacause we dont know teh if the array can be evenly divided we use scatterv instead of scatter
+    int *total_elements = NULL; // the total number of elements that the processes will  receive 
+    int *start_indx = NULL; // the starting index in P1 where the process will start receiving data
 
-    int base = (n+1) / size;
-    int rem = (n+1) % size;
 
-    int local_n = base + (rank < rem ? 1 : 0);
+    if (my_rank == 0) {
+        total_elements = malloc(comm_size * sizeof(int));
+        start_indx = malloc(comm_size * sizeof(int));
 
-    int *sendcounts = malloc(size * sizeof(int));
-    int *displs = malloc(size * sizeof(int));
+        int temp_minim =(n+1)/comm_size; // how many elements each process will receive at least
+        int temp_extra = (n+1) % comm_size; //how many procecces will receive one extra element
 
-    int offset = 0;
-    for (int i = 0; i < size; i++) {
-        sendcounts[i] = base + (i < rem ? 1 : 0);
-        displs[i] = offset;
-        offset += sendcounts[i];
-    }
 
-    int *localP1 = malloc(local_n * sizeof(int));
-    MPI_Scatterv(P1, sendcounts, displs, MPI_INT,
-                 localP1, local_n, MPI_INT,
-                 0, MPI_COMM_WORLD);
-
-    if (rank == 0) t_send_end = MPI_Wtime();
-
-    t_compute_start = MPI_Wtime();
-
-    int *localC = calloc(2*n+1, sizeof(int));
-    int start_i = displs[rank];
-
-    for (int i = 0; i < local_n; i++) {
-        for (int j = 0; j <= n; j++) {
-            localC[start_i + i + j] += localP1[i] * P2[j];
+        int offset = 0;
+        for (int p = 0;p< comm_size;p++  ){   
+            total_elements[p] = temp_minim +(p < temp_extra ? 1 : 0);
+            start_indx[p] = offset;
+            offset += total_elements[p];
         }
     }
 
-    t_compute_end = MPI_Wtime();
+    // Broadcast the total_elements so all ranks know their chunk size
+    if (my_rank != 0){
+        total_elements = malloc(comm_size * sizeof(int));
+    }  
+    MPI_Bcast(total_elements, comm_size, MPI_INT, 0, MPI_COMM_WORLD);
 
-    int *result_parallel = NULL;
-    if (rank == 0) {
-        result_parallel = calloc(2*n+1, sizeof(int));
-        t_recv_start = MPI_Wtime();
+    //Allocate memory for the array that will contain the local part of P1
+    temp_P1 = malloc(total_elements[my_rank]* sizeof(int));
+
+    // Scatterv P1array to all processes
+    MPI_Scatterv(P1, total_elements, start_indx, MPI_INT,
+                 temp_P1,total_elements[my_rank], MPI_INT,
+                 0,MPI_COMM_WORLD);
+    
+    send_end = MPI_Wtime(); //end the sending time
+  
+    // A temporary array to store local result of each proccess 
+    //it needs to be of size 2*n+1 because in the worst case a process can contribute to all coefficients
+    //also the array   must be filled with zeros 
+    local_result = calloc(2*n+1, sizeof(int));
+
+    //calculate the starting index in the result array for each process
+    int start_i = 0;
+    for (int i =0; i<my_rank; i++)
+        start_i +=total_elements[ i ];
+
+    // MULTIPLICATION (independent work for each process)
+    comp_start = MPI_Wtime(); //start computation time
+    for (int i =0; i< total_elements[ my_rank]; i++) {
+        for (int j =0; j<=n; j++) {
+            local_result[start_i +i+j] += temp_P1[i]*P2[j];
+        }
     }
-
-    MPI_Reduce(localC, result_parallel, 2*n+1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    if (rank == 0) {
-        t_recv_end = MPI_Wtime();
-        t_total_end = MPI_Wtime();
-
-        printf("Time sending data: %f\n", t_send_end - t_send_start);
-        printf("Time computing: %f\n", t_compute_end - t_compute_start);
-        printf("Time receiving results: %f\n", t_recv_end - t_recv_start);
-        printf("Total time: %f\n", t_total_end - t_total_start);
-
+    comp_end = MPI_Wtime(); //end computation time
+   
+    // GATHERING RESULTS TO MASTER PROCESS
+    if (my_rank == 0) {
         
-        /////////////// SERIAL MULTIPLICATION ///////////////
-        int *result_serial = malloc((2*n+1) * sizeof(int));
-        multiply_serial(n, P1, P2, result_serial);
+        int *final_result = calloc(2*n+1, sizeof(int));
 
-        ////////////// VERIFY CORRECTNESS ///////////////
-        int flag = 1;
-        for (int i = 0; i <= 2*n; i++) {
-            if (result_serial[i] != result_parallel[i]) {
-                flag     = 0;
-                break;
-            }
+        recv_start = MPI_Wtime(); //start receiving time
+
+        //First add the master's local result 
+        for (int i = 0; i < 2*n+1; i++){
+            final_result[i] += local_result[i];
         }
-        printf("Parallel multiplication correctness: %s\n", flag ? "OK" : "Mismatch");
 
+        MPI_Status status;
+        for (int i = 1; i < comm_size; i++) {
 
-        free(result_serial);
+            // Receive local result from each process
+            int *temporary = malloc((2*n+1) * sizeof(int));
+            MPI_Recv(temporary, 2*n+1, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
+            
+            // Combine the received local result into the final result
+            for (int j = 0; j < 2*n+1; j++){
+                final_result[j] += temporary[j];
+            }
+            free(temporary);
+        }
+
+        recv_end = MPI_Wtime(); //end receiving time
+        end_total = MPI_Wtime();//end total time
+        printf("Total multiplication time: %f seconds\n",  end_total - start_total);
+        printf("Sending data time: %f seconds\n", send_end - send_start);
+        printf("Parallel computation time: %f seconds\n", comp_end - comp_start);
+        printf("Receiving data time: %f seconds\n", recv_end - recv_start);
+
+    
+        // Free allocated memory
         free(P1);
         free(P2);
-        free(result_parallel);
+        free(final_result);
+        free(start_indx);
+    } else {
+        //if we are not in the master process we just send our local result to the master
+        MPI_Send(local_result, 2*n+1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        free(P2);
     }
 
     // Free the allocated memory
-    free(localP1);
-    free(localC);
-    free(sendcounts);
-    free(displs);
+    free(temp_P1);
+    free(total_elements);
+    free(local_result);
 
     MPI_Finalize();
     return 0;
@@ -157,3 +198,4 @@ void multiply_serial(int n, const int* P1, const int* P2, int* result) {
         }
     }
 }
+
