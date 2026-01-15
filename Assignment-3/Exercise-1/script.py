@@ -1,133 +1,222 @@
 import subprocess
-import matplotlib.pyplot as plt
-import re
-import numpy as np
 import os
+import re
+import statistics
+import matplotlib.pyplot as plt
 
-# Polynomial degrees and MPI process counts to test
-polynomial_degrees = [10**2, 10**3, 10**4]
-process_counts = [2, 4]
+# Configuration
+RUNNER = "mpiexec -f machines -n"
+EXECUTABLE = "./solution"
+ITERATIONS = 4
 
-# Regex patterns to capture MPI timing output
-send_re  = re.compile(r"Sending data time:\s*([0-9.]+)")
-comp_re  = re.compile(r"Parallel computation time:\s*([0-9.]+)")
-recv_re  = re.compile(r"Receiving data time:\s*([0-9.]+)")
-total_re = re.compile(r"Total multiplication time:\s*([0-9.]+)")
+# Output directory for graphs (if you add plots later)
+GRAPH_DIR = "graphs"
 
+# Test Case Parameters
+polyonomial_degrees = [10**2, 10**3, 10**4, 10**5]
+processes = [2, 4, 8]
 
-num_runs = 4
-
-# Results dictionary: category -> {(processes, degree): avg_time}
-results = {
-    "Send": {},
-    "Compute": {},
-    "Receive": {},
-    "Total": {}
-}
-
-for degree in polynomial_degrees:
-    print(f"\nRunning for polynomial degree: {degree}")
-
-    for procs in process_counts:
-        print(f"  Using {procs} MPI processes")
-
-        # Temporary lists for averaging
-        send_times = []
-        comp_times = []
-        recv_times = []
-        total_times = []
-
-        for run in range(num_runs):
-            print(f"    Run {run + 1}/{num_runs}")
-
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            exe_path = os.path.join(script_dir, "solution")
-
-            # Run MPI program
-            result = subprocess.run(
-                ["mpirun", "-np", str(procs), exe_path, str(degree)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-
-            output = result.stdout
-
-            # Extract times
-            send_times.append(float(send_re.search(output).group(1)))
-            comp_times.append(float(comp_re.search(output).group(1)))
-            recv_times.append(float(recv_re.search(output).group(1)))
-            total_times.append(float(total_re.search(output).group(1)))
-
-        # Store averages
-        results["Send"][(procs, degree)] = sum(send_times) / num_runs
-        results["Compute"][(procs, degree)] = sum(comp_times) / num_runs
-        results["Receive"][(procs, degree)] = sum(recv_times) / num_runs
-        results["Total"][(procs, degree)] = sum(total_times) / num_runs
+def parse_output(output_str):
+    """Extract timing metrics from program output."""
+    patterns = {
+        "serial": r"Serial multiplication time: ([\d.]+) seconds",
+        "total": r"Total multiplication time: ([\d.]+) seconds",
+        "sending": r"Sending data time: ([\d.]+) seconds",
+        "parallel": r"Parallel computation time: ([\d.]+) seconds",
+        "receiving": r"Receiving data time: ([\d.]+) seconds"
+    }
+    results = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, output_str)
+        results[key] = float(match.group(1)) if match else 0.0
+    return results
 
 
-# -----------------------------
-# Plotting
-# -----------------------------
+def run_benchmarks():
+    if not os.path.exists(GRAPH_DIR):
+        os.makedirs(GRAPH_DIR)
 
-labels = [f"P{p}/D{d}" for p in process_counts for d in polynomial_degrees]
-x = np.arange(len(labels))
-width = 0.2
+    all_data = []
 
-# Plot 1: Send, Compute, Receive, Total
-fig1, ax1 = plt.subplots(figsize=(16, 6))
+    for sz in polyonomial_degrees:
+        print(f"Running: Size {sz} ")
+        for th in processes:
+            samples = {"serial": [], "total": [], "sending": [], "parallel": [], "receiving": []}
+            print(f"    {th} processes")
 
-for idx, method in enumerate(["Send", "Compute", "Receive", "Total"]):
-    y_values = [results[method][(p, d)] for p in process_counts for d in polynomial_degrees]
-    ax1.bar(x + idx*width, y_values, width, label=method)
+            for i in range(ITERATIONS):
+                print(f"        RUN {i+1}/{ITERATIONS}")
+                try:
+                    # Command: mpiexec -f machines -n <th> ./solution <sz>
+                    command = RUNNER.split() + [str(th), EXECUTABLE, str(sz)]
+                    result = subprocess.run(command, capture_output=True, text=True, check=True)
 
-ax1.set_xlabel("Processes - Degree")
-ax1.set_ylabel("Average Time (seconds)")
-ax1.set_title("MPI Polynomial Multiplication Timings")
-ax1.set_xticks(x + width*1.5)
-ax1.set_xticklabels(labels, rotation=45)
-ax1.legend()
+                    metrics = parse_output(result.stdout)
 
-plt.tight_layout()
-plt.savefig("mpi_poly_times.png", dpi=300)
-plt.show()
+                    for k in samples:
+                        samples[k].append(metrics[k])
 
-# -----------------------------
-# Summary Table
-# -----------------------------
+                except Exception as e:
+                    print(f"Error at Size {sz}, Processes {th}: {e}")
+                    continue
 
-table_data = []
-for p in process_counts:
-    for d in polynomial_degrees:
+            avg_metrics = {k: statistics.mean(v) if v else 0 for k, v in samples.items()}
+
+            all_data.append({
+                "n": sz,
+                "processes": th,
+                **avg_metrics
+            })
+
+   
+    generate_graphs(all_data)
+
+
+def generate_graphs(data):
+    """Generate visualization graphs from benchmark data."""
+    
+    
+    # 1 Serial vs Parallel Computation Time Comparison
+    plt.figure(figsize=(14, 7))
+    x_pos = 0
+    width = 0.35
+    xtick_labels = []
+    xtick_positions = []
+    
+    for deg in polyonomial_degrees:
+        deg_data = sorted([d for d in data if d['n'] == deg], key=lambda x: x['processes'])
+        
+        for i, entry in enumerate(deg_data):
+            
+            plt.bar(x_pos, entry['serial'], width, label='Serial' if x_pos == 0 else '', 
+                   color='#d62728', alpha=0.8)
+                   
+            plt.bar(x_pos + width, entry['parallel'], width, label='Parallel' if x_pos == 0 else '', 
+                   color='#2ca02c', alpha=0.8)
+            
+            
+            label = f"n={entry['n']}\nP={entry['processes']}"
+            xtick_positions.append(x_pos + width / 2)
+            xtick_labels.append(label)
+            
+            x_pos += 2 * width + 0.2
+        
+        x_pos += 0.5
+    
+    plt.xticks(xtick_positions, xtick_labels, fontsize=10)
+    plt.xlabel('Problem Size (n) & Process Count (P)', fontsize=12, fontweight='bold')
+    plt.ylabel('Time (seconds)', fontsize=12)
+    plt.title('Serial vs Parallel Computation Time', fontsize=14, fontweight='bold')
+    plt.legend(fontsize=11)
+    plt.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    plt.savefig(f"{GRAPH_DIR}/serial_vs_parallel.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {GRAPH_DIR}/serial_vs_parallel.png")
+    
+    # 2. Communication and Computation Breakdown
+    plt.figure(figsize=(14, 7))
+    x_pos = 0
+    width = 0.25
+    xtick_labels = []
+    xtick_positions = []
+    
+    for deg in polyonomial_degrees:
+        deg_data = sorted([d for d in data if d['n'] == deg], key=lambda x: x['processes'])
+        
+        for entry in deg_data:
+            plt.bar(x_pos, entry['sending'], width, label='Sending' if x_pos == 0 else '', 
+                   color='#1f77b4', alpha=0.8)
+            plt.bar(x_pos + width, entry['parallel'], width, label='Parallel Comp' if x_pos == 0 else '', 
+                   color='#ff7f0e', alpha=0.8)
+            plt.bar(x_pos + 2*width, entry['receiving'], width, label='Receiving' if x_pos == 0 else '', 
+                   color='#2ca02c', alpha=0.8)
+            
+            label = f"n={entry['n']}\nP={entry['processes']}"
+            xtick_positions.append(x_pos + width)
+            xtick_labels.append(label)
+            
+            x_pos += 3 * width + 0.2
+        
+        x_pos += 0.5
+    
+    plt.xticks(xtick_positions, xtick_labels, fontsize=10)
+    plt.xlabel('Problem Size (n) & Process Count (P)', fontsize=12, fontweight='bold')
+    plt.ylabel('Time (seconds)', fontsize=12)
+    plt.title('Communication and Computation Time Breakdown', fontsize=14, fontweight='bold')
+    plt.legend(fontsize=11, loc='upper left')
+    plt.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    plt.savefig(f"{GRAPH_DIR}/communication_breakdown.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {GRAPH_DIR}/communication_breakdown.png")
+    
+    # 3. Time Components vs Process Count (line plot for each array size)
+    for deg in polyonomial_degrees:
+        plt.figure(figsize=(12, 7))
+        deg_data = sorted([d for d in data if d['n'] == deg], key=lambda x: x['processes'])
+        
+        if deg_data:
+            procs = [d['processes'] for d in deg_data]
+            sending = [d['sending'] for d in deg_data]
+            parallel = [d['parallel'] for d in deg_data]
+            receiving = [d['receiving'] for d in deg_data]
+            
+            plt.plot(procs, sending, marker='o', linewidth=2.5, markersize=8, label='Sending Time', color='#1f77b4')
+            plt.plot(procs, parallel, marker='s', linewidth=2.5, markersize=8, label='Parallel Computation', color='#ff7f0e')
+            plt.plot(procs, receiving, marker='^', linewidth=2.5, markersize=8, label='Receiving Time', color='#2ca02c')
+            
+            plt.xlabel('Number of Processes', fontsize=12, fontweight='bold')
+            plt.ylabel('Time (seconds)', fontsize=12)
+            plt.title(f'Communication & Computation Time vs Process Count (n={deg})', fontsize=14, fontweight='bold')
+            plt.legend(fontsize=11, loc='best')
+            plt.grid(True, alpha=0.3)
+            plt.xticks(procs)
+            plt.tight_layout()
+            plt.savefig(f"{GRAPH_DIR}/time_components_n{deg}.png", dpi=300, bbox_inches='tight')
+            plt.close()
+            print(f"Saved: {GRAPH_DIR}/time_components_n{deg}.png")
+    
+    # 2. Data Table with all timing results
+    fig, ax = plt.subplots(figsize=(16, 8))
+    ax.axis('tight')
+    ax.axis('off')
+    
+
+    table_data = []
+    headers = ['n', 'Processes', 'Serial (s)', 'Total (s)', 'Sending (s)', 'Parallel (s)', 'Receiving (s)']
+    
+    for row in data:
         table_data.append([
-            f"P{p}/D{d}",
-            f"{results['Send'][(p,d)]:.6f}",
-            f"{results['Compute'][(p,d)]:.6f}",
-            f"{results['Receive'][(p,d)]:.6f}",
-            f"{results['Total'][(p,d)]:.6f}"
+            f"{row['n']}",
+            f"{row['processes']}",
+            f"{row['serial']:.6f}",
+            f"{row['total']:.6f}",
+            f"{row['sending']:.6f}",
+            f"{row['parallel']:.6f}",
+            f"{row['receiving']:.6f}"
         ])
+    
+    table = ax.table(cellText=table_data, colLabels=headers, cellLoc='center', loc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 2)
+    
+    
+    for i in range(len(headers)):
+        table[(0, i)].set_facecolor('#4CAF50')
+        table[(0, i)].set_text_props(weight='bold', color='white')
+    
+    for i in range(1, len(table_data) + 1):
+        for j in range(len(headers)):
+            if i % 2 == 0:
+                table[(i, j)].set_facecolor('#f0f0f0')
+    
+    plt.title('Complete Timing Results Table', fontsize=16, fontweight='bold', pad=20)
+    plt.savefig(f"{GRAPH_DIR}/timing_table.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {GRAPH_DIR}/timing_table.png")
 
-col_labels = ["Proc-Degree", "Send", "Compute", "Receive", "Total"]
 
-fig2, ax2 = plt.subplots(figsize=(14, 5))
-ax2.axis('tight')
-ax2.axis('off')
-
-table = ax2.table(
-    cellText=table_data,
-    colLabels=col_labels,
-    loc='center'
-)
-
-table.auto_set_font_size(False)
-table.set_fontsize(10)
-table.scale(1.2, 1.2)
-
-for (row, col), cell in table.get_celld().items():
-    if row == 0:
-        cell.set_facecolor("#ccccff")
-        cell.set_text_props(weight='bold')
-
-plt.title("MPI Timing Summary")
-plt.savefig("mpi_poly_times_table.png", dpi=300)
-plt.show()
+if __name__ == "__main__":
+    run_benchmarks()

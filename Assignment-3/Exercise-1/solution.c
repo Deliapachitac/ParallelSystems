@@ -33,9 +33,9 @@ int main(int argc, char* argv[]) {
     double send_start,send_end;
     double comp_start,comp_end;
     double recv_start, recv_end;
+    double serial_start, serial_end;
 
-    start_total = MPI_Wtime();//start total time    
-
+    
     // The two polynomials will be stored in arrays
     int *P1 = NULL, *P2 = NULL;
 
@@ -49,10 +49,21 @@ int main(int argc, char* argv[]) {
 
         generate_polynomials(n, P1);
         generate_polynomials(n, P2);
+
+        //////////////// SERIAL MULTIPLICATION ////////////////
+        int *serial_res = malloc((2 * n + 1) * sizeof(int));
+        serial_start = MPI_Wtime();
+        multiply_serial(n, P1, P2, serial_res);
+        serial_end = MPI_Wtime();
+        printf("Serial multiplication time: %.6f seconds\n", serial_end - serial_start);
+        free(serial_res);
+
     } else{
     //All the processes need P2 so we allocate memory for it and we broadcast it
         P2 = malloc((n+1)*sizeof(int));
     }  
+    
+    start_total = MPI_Wtime();//start total time    
 
     send_start = MPI_Wtime(); //start the sending time
     
@@ -144,10 +155,10 @@ int main(int argc, char* argv[]) {
 
         recv_end = MPI_Wtime(); //end receiving time
         end_total = MPI_Wtime();//end total time
-        printf("Total multiplication time: %f seconds\n",  end_total - start_total);
-        printf("Sending data time: %f seconds\n", send_end - send_start);
-        printf("Parallel computation time: %f seconds\n", comp_end - comp_start);
-        printf("Receiving data time: %f seconds\n", recv_end - recv_start);
+        printf("Total multiplication time: %.6f seconds\n",  end_total - start_total);
+        printf("Sending data time: %.6f seconds\n", send_end - send_start);
+        printf("Parallel computation time: %.6f seconds\n", comp_end - comp_start);
+        printf("Receiving data time: %.6f seconds\n", recv_end - recv_start);
 
     
         // Free allocated memory
@@ -198,4 +209,3 @@ void multiply_serial(int n, const int* P1, const int* P2, int* result) {
         }
     }
 }
-
