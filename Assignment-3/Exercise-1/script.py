@@ -4,12 +4,10 @@ import re
 import statistics
 import matplotlib.pyplot as plt
 
-# Configuration
 RUNNER = "mpiexec -f machines -n"
 EXECUTABLE = "./solution"
 ITERATIONS = 4
 
-# Output directory for graphs (if you add plots later)
 GRAPH_DIR = "graphs"
 
 # Test Case Parameters
@@ -177,45 +175,80 @@ def generate_graphs(data):
             plt.close()
             print(f"Saved: {GRAPH_DIR}/time_components_n{deg}.png")
     
-    # 2. Data Table with all timing results
-    fig, ax = plt.subplots(figsize=(16, 8))
+    # 2a. Data Table without Serial (includes derived total = sending + receiving + parallel and improvement)
+    fig, ax = plt.subplots(figsize=(18, 8))
     ax.axis('tight')
     ax.axis('off')
-    
 
     table_data = []
-    headers = ['n', 'Processes', 'Serial (s)', 'Total (s)', 'Sending (s)', 'Parallel (s)', 'Receiving (s)']
-    
+    headers = ['n', 'Processes', 'Total (s)', 'Sending (s)', 'Parallel (s)', 'Receiving (s)']
+
     for row in data:
+        derived_total = row['sending'] + row['receiving'] + row['parallel']
         table_data.append([
             f"{row['n']}",
             f"{row['processes']}",
-            f"{row['serial']:.6f}",
-            f"{row['total']:.6f}",
+            f"{derived_total:.6f}",
             f"{row['sending']:.6f}",
             f"{row['parallel']:.6f}",
             f"{row['receiving']:.6f}"
         ])
-    
+
     table = ax.table(cellText=table_data, colLabels=headers, cellLoc='center', loc='center')
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1, 2)
-    
-    
+
     for i in range(len(headers)):
         table[(0, i)].set_facecolor('#4CAF50')
         table[(0, i)].set_text_props(weight='bold', color='white')
-    
+
     for i in range(1, len(table_data) + 1):
         for j in range(len(headers)):
             if i % 2 == 0:
                 table[(i, j)].set_facecolor('#f0f0f0')
-    
-    plt.title('Complete Timing Results Table', fontsize=16, fontweight='bold', pad=20)
-    plt.savefig(f"{GRAPH_DIR}/timing_table.png", dpi=300, bbox_inches='tight')
+
+    plt.title('Timing (Total = Sending + Parallel + Receiving)', fontsize=16, fontweight='bold', pad=20)
+    plt.savefig(f"{GRAPH_DIR}/timing_table_no_serial.png", dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Saved: {GRAPH_DIR}/timing_table.png")
+    print(f"Saved: {GRAPH_DIR}/timing_table_no_serial.png")
+
+    # 2b. Data Table with Serial and Parallel (and improvement)
+    fig, ax = plt.subplots(figsize=(14, 6))
+    ax.axis('tight')
+    ax.axis('off')
+
+    serial_table = []
+    serial_headers = ['n', 'Processes', 'Serial (s)', 'Total (s)', 'Improvement (serial/total)']
+    for row in data:
+        derived_total = row['sending'] + row['parallel'] + row['receiving']
+        improvement_sp = (row['serial'] / derived_total) if derived_total > 0 else 0.0
+        serial_table.append([
+            f"{row['n']}",
+            f"{row['processes']}",
+            f"{row['serial']:.6f}",
+            f"{derived_total:.6f}",
+            f"{improvement_sp:.2f}x"
+        ])
+
+    table = ax.table(cellText=serial_table, colLabels=serial_headers, cellLoc='center', loc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 2)
+
+    for i in range(len(serial_headers)):
+        table[(0, i)].set_facecolor('#4CAF50')
+        table[(0, i)].set_text_props(weight='bold', color='white')
+
+    for i in range(1, len(serial_table) + 1):
+        for j in range(len(serial_headers)):
+            if i % 2 == 0:
+                table[(i, j)].set_facecolor('#f0f0f0')
+
+    plt.title('Serial Timing Only', fontsize=16, fontweight='bold', pad=20)
+    plt.savefig(f"{GRAPH_DIR}/timing_table_serial_only.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {GRAPH_DIR}/timing_table_serial_only.png")
 
 
 if __name__ == "__main__":

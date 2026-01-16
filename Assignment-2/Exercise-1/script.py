@@ -17,7 +17,7 @@ parallel_time = []
 init_re = re.compile(r"Initialization time: ([0-9.]+) seconds") 
 serial_re = re.compile(r"Serial multiplication time: ([0-9.]+) seconds") 
 parallel_re = re.compile(r"Parallel multiplication time: ([0-9.]+) seconds") 
-num_runs = 4
+num_runs = 1
 
 # Results dictionary: method -> {(threads, degree): avg_time}
 results = {"Initialization": {}, "Serial": {}, "Parallel": {}}
