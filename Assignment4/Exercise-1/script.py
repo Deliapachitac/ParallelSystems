@@ -12,7 +12,7 @@ init_re = re.compile(r"Initialization time: ([0-9.]+) seconds")
 serial_re = re.compile(r"Serial multiplication time: ([0-9.]+) seconds")
 simd_re = re.compile(r"SIMD multiplication time: ([0-9.]+) seconds")
 
-num_runs = 2
+num_runs = 5
 
 # Results dictionary: method -> {degree: avg_time}
 results = {"Initialization": {}, "Serial": {}, "SIMD": {}}
@@ -45,23 +45,19 @@ for degree in polynomial_degrees:
 	results["SIMD"][degree] = sum(run_temp_simd) / num_runs
 
 # Plot 1: Serial vs SIMD
-labels = [f"D{d}" for d in polynomial_degrees]
-x = np.arange(len(labels))
-width = 0.35
-
 fig1, ax1 = plt.subplots(figsize=(12, 6))
 
 serial_vals = [results["Serial"][d] for d in polynomial_degrees]
 simd_vals = [results["SIMD"][d] for d in polynomial_degrees]
 
-ax1.bar(x - width/2, serial_vals, width, label="Serial")
-ax1.bar(x + width/2, simd_vals, width, label="SIMD")
+ax1.plot(polynomial_degrees, serial_vals, marker='o', linewidth=2, label="Serial")
+ax1.plot(polynomial_degrees, simd_vals, marker='o', linewidth=2, label="SIMD")
 
-ax1.set_xlabel("Polynomial Degree")
+ax1.set_xlabel("Polynomial Degree (n)")
 ax1.set_ylabel("Average Time (seconds)")
 ax1.set_title("Polynomial Multiplication: Serial vs SIMD")
-ax1.set_xticks(x)
-ax1.set_xticklabels(labels)
+ax1.set_xscale("log")
+ax1.grid(True, which="both", linestyle="--", alpha=0.5)
 ax1.legend()
 
 plt.tight_layout()
@@ -72,18 +68,20 @@ plt.show()
 fig2, ax2 = plt.subplots(figsize=(12, 6))
 
 init_vals = [results["Initialization"][d] for d in polynomial_degrees]
-ax2.bar(x, init_vals, width, color="orange", label="Initialization")
 
-ax2.set_xlabel("Polynomial Degree")
+ax2.plot(polynomial_degrees, init_vals, marker='o', color="orange", linewidth=2, label="Initialization")
+
+ax2.set_xlabel("Polynomial Degree (n)")
 ax2.set_ylabel("Average Time (seconds)")
 ax2.set_title("Polynomial Multiplication: Initialization Time")
-ax2.set_xticks(x)
-ax2.set_xticklabels(labels)
+ax2.set_xscale("log")
+ax2.grid(True, which="both", linestyle="--", alpha=0.5)
 ax2.legend()
 
 plt.tight_layout()
 plt.savefig("poly_times_initialization.png", dpi=300)
 plt.show()
+
 
 # Table summary
 table_data = []

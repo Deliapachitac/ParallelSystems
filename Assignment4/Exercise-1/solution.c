@@ -73,10 +73,6 @@ int main(int argc, char *argv[]) {
     }
     printf("Parallel multiplication correctness: %s\n", flag ? "OK" : "Mismatch");
     
-    if (parallel_time > 0.0) {
-        printf("Speedup (serial / SIMD): %.2fx\n", serial_time / parallel_time);
-    }
-
     // Free the allocated memory
     free(P1);
     free(P2);
@@ -142,7 +138,7 @@ void multiply_simd(int n, const int *P1, const int *P2, int *result) {
             __m256i vc = _mm256_loadu_si256((__m256i*)(result +i +j )); // load 8 consecutive result values from result
 
             //Multiply and add to the vector rerult 
-            __m256i  vmul= _mm256_mullo_epi32(va , vb); 
+            __m256i  vmul= _mm256_mullo_epi32(va, vb); 
             vc = _mm256_add_epi32(vc , vmul);
 
             _mm256_storeu_si256((__m256i *)(result + i + j), vc); //store the updated result back to memory
