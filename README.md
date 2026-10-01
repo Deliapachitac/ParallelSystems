@@ -1,2 +1,3 @@
 # Parallel systems Assignments
 
+This repository contains the coursework completed for the **Parallel Systems** course, offered by the Department of Informatics and Telecommunications at the National and Kapodistrian University of Athens (NKUA). The project is structured into four main directories (`assignment 1`, `assignment 2`, `assignment 3`, and `assignment 4`), each corresponding to an individual coursework assignment. Every folder includes the complete source code, implementation files, and a comprehensive written technical report in PDF format detailing the architecture, benchmarks, and findings.
